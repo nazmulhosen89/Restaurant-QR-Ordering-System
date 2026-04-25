@@ -1,0 +1,84 @@
+|   qr-restaurant-system.php
+|   readme.txt
+|   structure.txt
+|   uninstall.php
+|   
++---assets
+|   +---css
+|   |       admin.css
+|   |       frontend.css
+|   |       mobile.css
+|   |       
+|   +---images
+|   \---js
+|           app.js
+|           cart.js
+|           reports.js
+|           waiter.js
+|           
++---includes
+|   |   admin-menu.php
+|   |   auth.php
+|   |   database.php
+|   |   helpers.php
+|   |   
+|   +---billing
+|   |       billing-functions.php
+|   |       invoice.php
+|   |       payment.php
+|   |       
+|   +---kitchen
+|   |       kitchen-display.php
+|   |       kitchen-functions.php
+|   |       
+|   +---menu
+|   |       category.php
+|   |       items.php
+|   |       menu-functions.php
+|   |       
+|   +---order
+|   |       cart.php
+|   |       checkout.php
+|   |       order-create.php
+|   |       order-functions.php
+|   |       orders-admin.php
+|   |       
+|   +---reports
+|   |       report-functions.php
+|   |       reports.php
+|   |       
+|   +---restaurant
+|   |       restaurant-create.php
+|   |       restaurant-functions.php
+|   |       tables.php
+|   |       
+|   +---subscription
+|   |       subscription-functions.php
+|   |       subscription.php
+|   |       
+|   \---waiter
+|           waiter-dashboard.php
+|           waiter-functions.php
+|           
++---languages
+|       qr-restaurant-system.pot
+|       
+\---templates
+    +---dashboard
+    |       dashboard.php
+    |       kitchen.php
+    |       orders.php
+    |       reports.php
+    |       waiter.php
+    |       
+    +---frontend
+    |       cart.php
+    |       checkout.php
+    |       menu.php
+    |       success.php
+    |       
+    \---partials
+            footer.php
+            header.php
+            sidebar.php
+            
