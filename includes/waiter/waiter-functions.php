@@ -50,7 +50,6 @@ function qrrs_get_order_for_edit() {
     $order_id = intval($_POST['order_id'] ?? 0);
     if (!$order_id) { wp_send_json_error('Missing order ID'); return; }
 
-    // শুধু original items (additional নয়)
     $items = $wpdb->get_results($wpdb->prepare(
         "SELECT item_id as id, item_name as name, price, quantity as qty, variants_selected
          FROM {$wpdb->prefix}qrrs_order_items
@@ -58,7 +57,6 @@ function qrrs_get_order_for_edit() {
         $order_id
     ));
 
-    // item_type column না থাকলে সব আনা
     if ($wpdb->last_error) {
         $items = $wpdb->get_results($wpdb->prepare(
             "SELECT item_id as id, item_name as name, price, quantity as qty, variants_selected
@@ -104,7 +102,7 @@ function qrrs_submit_waiter_order() {
     if (empty($items) || !is_array($items)) { wp_send_json_error('Cart is empty!'); return; }
 
     if ($order_mode === 'new') {
-        // নতুন অর্ডার — সরাসরি processing (kitchen এ যাবে)
+
         if (!$table_name || !$restaurant_id) { wp_send_json_error('Missing info.'); return; }
 
         $inserted = $wpdb->insert($wpdb->prefix.'qrrs_orders', [
@@ -114,7 +112,7 @@ function qrrs_submit_waiter_order() {
             'tax_amount'     => $tax_amount,
             'service_charge' => $service_charge,
             'grand_total'    => $grand_total,
-            'order_status'   => 'pending', // সরাসরি kitchen এ
+            'order_status'   => 'pending',
             'payment_status' => 'unpaid',
             'created_at'     => current_time('mysql'),
             'waiter_id'      => get_current_user_id(),
@@ -122,7 +120,6 @@ function qrrs_submit_waiter_order() {
         if ($inserted === false) { wp_send_json_error('DB error: '.$wpdb->last_error); return; }
         $order_id = $wpdb->insert_id;
 
-        // Items insert
         foreach ($items as $item) {
             $wpdb->insert($wpdb->prefix.'qrrs_order_items', [
                 'order_id'          => $order_id,
@@ -132,13 +129,14 @@ function qrrs_submit_waiter_order() {
                 'quantity'          => intval($item['qty']),
                 'variants_selected' => sanitize_text_field($item['variants_selected'] ?? ''),
                 'item_status'       => 'pending',
-                'item_type'         => 'original', // original flag
+                'item_type'         => 'original',
                 'restaurant_id'     => $restaurant_id,
             ]);
         }
 
     } elseif ($order_mode === 'edit' && $order_id > 0) {
-        // এডিট — শুধু original items মুছে নতুন করে ইনসার্ট
+
+        // প্রথমে frontend থেকে আসা নতুন values দিয়ে update করো
         $wpdb->update($wpdb->prefix.'qrrs_orders', [
             'total_amount'   => $subtotal,
             'tax_amount'     => $tax_amount,
@@ -146,7 +144,7 @@ function qrrs_submit_waiter_order() {
             'grand_total'    => $grand_total,
         ], ['id' => $order_id]);
 
-        // item_type column থাকলে শুধু original মুছব
+        // শুধু original items মুছব
         $wpdb->query($wpdb->prepare(
             "DELETE FROM {$wpdb->prefix}qrrs_order_items WHERE order_id = %d AND (item_type = 'original' OR item_type IS NULL OR item_type = '')",
             $order_id
@@ -166,34 +164,42 @@ function qrrs_submit_waiter_order() {
             ]);
         }
 
-        // Grand total recalculate
-        $new_total = floatval($wpdb->get_var($wpdb->prepare(
-            "SELECT SUM(price * quantity) FROM {$wpdb->prefix}qrrs_order_items WHERE order_id = %d", $order_id
+        // Items থেকে নতুন subtotal recalculate করো (additional সহ)
+        $new_subtotal = floatval($wpdb->get_var($wpdb->prepare(
+            "SELECT SUM(price * quantity) FROM {$wpdb->prefix}qrrs_order_items WHERE order_id = %d",
+            $order_id
         )));
+        // DB থেকে tax ও sc নাও (এইমাত্র frontend থেকে save হয়েছে)
+        $order_charges = $wpdb->get_row($wpdb->prepare(
+            "SELECT tax_amount, service_charge FROM {$wpdb->prefix}qrrs_orders WHERE id = %d",
+            $order_id
+        ));
+        $new_grand = $new_subtotal + (float)$order_charges->tax_amount + (float)$order_charges->service_charge;
         $wpdb->update($wpdb->prefix.'qrrs_orders',
-            ['total_amount' => $new_total, 'grand_total' => $new_total],
+            ['total_amount' => $new_subtotal, 'grand_total' => $new_grand],
             ['id' => $order_id]
         );
 
     } elseif ($order_mode === 'add' && $order_id > 0) {
-        // Additional items — আলাদা type দিয়ে ইনসার্ট
+
+        // Additional items insert
         foreach ($items as $item) {
             $item_id  = intval($item['id']);
             $qty      = intval($item['qty']);
             $variants = sanitize_text_field($item['variants_selected'] ?? '');
 
             // একই additional item আগে থেকে থাকলে qty বাড়াও
-            $existing = $wpdb->get_row($wpdb->prepare(
+            $existing_item = $wpdb->get_row($wpdb->prepare(
                 "SELECT id, quantity FROM {$wpdb->prefix}qrrs_order_items
                  WHERE order_id = %d AND item_id = %d AND item_type = 'additional' AND variants_selected = %s",
                 $order_id, $item_id, $variants
             ));
 
-            if ($existing) {
+            if ($existing_item) {
                 $wpdb->update(
                     $wpdb->prefix.'qrrs_order_items',
-                    ['quantity' => $existing->quantity + $qty],
-                    ['id' => $existing->id]
+                    ['quantity' => $existing_item->quantity + $qty],
+                    ['id' => $existing_item->id]
                 );
             } else {
                 $wpdb->insert($wpdb->prefix.'qrrs_order_items', [
@@ -204,19 +210,40 @@ function qrrs_submit_waiter_order() {
                     'quantity'          => $qty,
                     'variants_selected' => $variants,
                     'item_status'       => 'pending',
-                    'item_type'         => 'additional', // additional flag
+                    'item_type'         => 'additional',
                     'restaurant_id'     => $restaurant_id,
                 ]);
             }
         }
 
-        // Grand total আপডেট
-        $new_total = floatval($wpdb->get_var($wpdb->prepare(
-            "SELECT SUM(price * quantity) FROM {$wpdb->prefix}qrrs_order_items WHERE order_id = %d", $order_id
+        // সব items মিলিয়ে নতুন subtotal বের করো
+        $new_subtotal = floatval($wpdb->get_var($wpdb->prepare(
+            "SELECT SUM(price * quantity) FROM {$wpdb->prefix}qrrs_order_items WHERE order_id = %d",
+            $order_id
         )));
-        $wpdb->update($wpdb->prefix.'qrrs_orders',
-            ['total_amount' => $new_total, 'grand_total' => $new_total],
-            ['id' => $order_id]
+
+        // DB থেকে আগের tax ও sc আনো — ✅ $order_charges ব্যবহার করো
+        $order_charges = $wpdb->get_row($wpdb->prepare(
+            "SELECT tax_amount, service_charge FROM {$wpdb->prefix}qrrs_orders WHERE id = %d",
+            $order_id
+        ));
+
+        // পুরনো tax/sc এর সাথে নতুন items এর tax/sc যোগ করো
+        $new_tax   = (float)$order_charges->tax_amount   + $tax_amount;   // ✅ $order_charges (আগে $existing ছিল — bug!)
+        $new_sc    = (float)$order_charges->service_charge + $service_charge;
+        $new_grand = $new_subtotal + $new_tax + $new_sc;
+
+        $wpdb->update(
+            $wpdb->prefix.'qrrs_orders',
+            [
+                'total_amount'   => $new_subtotal,
+                'tax_amount'     => $new_tax,
+                'service_charge' => $new_sc,
+                'grand_total'    => $new_grand,
+            ],
+            ['id' => $order_id],
+            ['%f', '%f', '%f', '%f'],
+            ['%d']
         );
     }
 
@@ -235,8 +262,6 @@ function handle_waiter_status_update() {
 
     $update = ['order_status' => $status];
 
-    // billing এ গেলে payment_status আপডেট করা হবে না — billing কাউন্টার করবে
-    // completed বা paid হলে payment done
     if ($status === 'paid' || $status === 'completed') {
         $update['payment_status'] = 'paid';
         $update['order_status']   = 'completed';
@@ -256,5 +281,85 @@ function qrrs_maybe_add_item_type_column() {
     $columns = $wpdb->get_col("SHOW COLUMNS FROM $table");
     if (!in_array('item_type', $columns)) {
         $wpdb->query("ALTER TABLE $table ADD COLUMN item_type VARCHAR(20) DEFAULT 'original' AFTER item_status");
+    }
+}
+
+
+// ৬. Notification Polling — waiter dashboard থেকে call হয়
+add_action('wp_ajax_qrrs_waiter_poll', 'qrrs_waiter_poll');
+function qrrs_waiter_poll() {
+    global $wpdb;
+    $res_id    = intval($_POST['res_id']    ?? 0);
+    $waiter_id = intval($_POST['waiter_id'] ?? 0);
+    if (!$res_id) { wp_send_json_error('Missing res_id'); return; }
+
+    $ready_count = intval($wpdb->get_var($wpdb->prepare(
+        "SELECT COUNT(*) FROM {$wpdb->prefix}qrrs_orders
+         WHERE restaurant_id = %d AND order_status = 'ready'
+           AND waiter_id = %d AND DATE(created_at) = CURDATE()",
+        $res_id, $waiter_id
+    )));
+
+    $qr_count = intval($wpdb->get_var($wpdb->prepare(
+        "SELECT COUNT(*) FROM {$wpdb->prefix}qrrs_orders
+         WHERE restaurant_id = %d AND waiter_id = 0
+           AND order_status NOT IN ('completed','cancelled','billing')
+           AND DATE(created_at) = CURDATE()",
+        $res_id
+    )));
+
+    wp_send_json_success([
+        'ready_count' => $ready_count,
+        'qr_count'    => $qr_count,
+    ]);
+}
+
+
+// ৭. Add mode এ existing সব items fetch করা (cart preview এর জন্য)
+add_action('wp_ajax_qrrs_get_all_order_items', 'qrrs_get_all_order_items');
+function qrrs_get_all_order_items() {
+    global $wpdb;
+    $order_id = intval($_POST['order_id'] ?? 0);
+    if (!$order_id) { wp_send_json_error('Missing order ID'); return; }
+
+    $items = $wpdb->get_results($wpdb->prepare(
+        "SELECT item_name as name, price, quantity as qty, item_type, variants_selected
+         FROM {$wpdb->prefix}qrrs_order_items
+         WHERE order_id = %d ORDER BY id ASC",
+        $order_id
+    ));
+    wp_send_json_success($items ?: []);
+}
+
+
+// ৮. QR অর্ডারের মালিকানা দাবি করা (Claiming Ownership)
+add_action('wp_ajax_qrrs_claim_qr_order', 'handle_qrrs_claim_qr_order');
+function handle_qrrs_claim_qr_order() {
+    check_ajax_referer('qrrs_nonce_action', 'security');
+
+    if (!isset($_POST['order_id'])) {
+        wp_send_json_error('Invalid Order ID');
+        return;
+    }
+
+    global $wpdb;
+    $order_id  = intval($_POST['order_id']);
+    $waiter_id = get_current_user_id();
+
+    // শুধুমাত্র যদি বর্তমান waiter_id ০ (QR Order) হয়, তবেই এটি আপডেট হবে
+    // এটি নিশ্চিত করে যে অ্যাডমিন বা ম্যানেজারদের আইডি পরিবর্তন হবে না
+    $updated = $wpdb->update(
+        $wpdb->prefix . 'qrrs_orders',
+        array('waiter_id' => $waiter_id),
+        array(
+            'id' => $order_id, 
+            'waiter_id' => 0 // কন্ডিশন: শুধুমাত্র আনক্লেইমড অর্ডার
+        )
+    );
+
+    if ($updated !== false) {
+        wp_send_json_success('Ownership updated.');
+    } else {
+        wp_send_json_error('Database update failed.');
     }
 }

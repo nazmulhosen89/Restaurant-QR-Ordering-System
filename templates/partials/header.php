@@ -12,7 +12,7 @@ $restaurant = $wpdb->get_row($wpdb->prepare(
 $res_name    = !empty($restaurant->restaurant_name) ? $restaurant->restaurant_name : get_bloginfo('name');
 $res_address = !empty($restaurant->address) ? $restaurant->address : 'Address not set';
 $res_phone   = !empty($restaurant->phone) ? $restaurant->phone : 'Phone not set';
-$res_logo    = !empty($restaurant->logo_url) ? $restaurant->logo_url : '';
+$res_logo    = !empty($restaurant->restaurant_logo) ? $restaurant->restaurant_logo : '';
 ?>
 
 <div class="pos-header" style="text-align:center; margin-bottom:15px; font-family: 'Courier New', Courier, monospace;">

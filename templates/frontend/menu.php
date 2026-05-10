@@ -23,115 +23,7 @@ $items      = $wpdb->get_results($wpdb->prepare("SELECT * FROM $items_table WHER
 ?>
 
 <style>
-    :root { --primary: #f97316; --bg: #f8fafc; --white: #ffffff; }
-    body { background: var(--bg); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; }
-    
-    .menu-wrapper { display: flex; min-height: 100vh; max-height: 100vh; overflow: hidden; }
-    
-    /* Layout */
-    .sidebar-left { width: 90px; background: #fff; border-right: 1px solid #e2e8f0; overflow-y: auto; text-align: center; flex-shrink: 0; }
-    .main-content { flex: 1; overflow-y: auto; padding: 20px; background: #f8fafc; }
-    .sidebar-right { width: 340px; background: #fff; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; flex-shrink: 0; }
-    .sidebar-top{display: none;}
-
-    
-    /* Categories */
-    .cat-item { padding: 15px 5px; cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: 0.2s; }
-    .cat-item.active { background: #fff7ed; border-left: 4px solid var(--primary); color: var(--primary); }
-    .cat-icon { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; background: #eee; margin-bottom: 5px; }
-    .cat-item h4{font-size: 12px; margin: 0;}
-
-    /* Items Card */
-    .item-grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
-    .item-card { 
-        background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; 
-        overflow: hidden; position: relative; cursor: pointer; 
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .item-card:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
-    .item-card.selected { border-color: var(--primary); background: #fffaf5; box-shadow: 0 0 0 2px var(--primary); }
-    
-    .item-img { width: 100%; height: 135px; object-fit: cover; background: #f1f5f9; transition: 0.3s; }
-    .item-qty-badge { 
-        position: absolute; top: 10px; right: 10px; background: var(--primary); color: #fff; 
-        width: 28px; height: 28px; border-radius: 50%; display: none; 
-        align-items: center; justify-content: center; font-size: 13px; 
-        font-weight: bold; border: 2px solid #fff; z-index: 5; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-
-    /* Out of Stock */
-    .item-card.out-of-stock { cursor: not-allowed; opacity: 0.7; }
-    .item-card.out-of-stock .item-img { filter: grayscale(1); }
-
-    /* Controls */
-    .card-controls { display: none; align-items: center; justify-content: center; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 2px; }
-    .qty-btn { background: #f8fafc; border: 1px solid #e2e8f0; width: 30px; height: 30px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-    .qty-btn:hover { background: #f1f5f9; }
-
-    /* Modal */
-    .v-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(2px); }
-    .v-modal-content { background: #fff; width: 90%; max-width: 400px; border-radius: 20px; padding: 25px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); animation: slideIn 0.2s ease-out; }
-    @keyframes slideIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-
-    /* Cart Summary */
-    .total-box { margin-top: 15px; padding-top: 15px; border-top: 2px dashed #e2e8f0; font-size: 18px; font-weight: 800; color: #1e293b; }
-
-     @media (min-width: 800px) {
-        #cart-summary button .total-box{
-            display: none;
-        }
-}
-
-    @media (max-width: 991px) { 
-        /* .sidebar-left, .sidebar-right { display: none !important; }  */
-        .menu-wrapper { display: block; overflow-y: auto; } 
-    }
-
-    @media (max-width: 799px) {
-        .sidebar-left {
-            width: 100%;
-            height: 105px;
-            background: #fff;
-            border-bottom: 1px solid #e2e8f0;
-            
-            /* Scroll er jonno main part */
-            display: flex;             /* Item gulo ke pashapashi rakhbe */
-            overflow-x: auto;          /* Shudhu dane-bame scroll hobe */
-            overflow-y: hidden;        /* Vertical scroll bondho thakbe */
-            white-space: nowrap;       /* Item gulo ke niche nambate dibe na */
-            -webkit-overflow-scrolling: touch; /* Mobile-e smooth scroll er jonno */
-        }
-
-        .sidebar-left .cat-item {
-            /* float: left; dorkar nei jodi flex use koren */
-            flex: 0 0 auto;            /* Item gulo ke nijeder size dhore rakhte shahajjo korbe */
-            height: 105px;
-            width: 150px;
-            text-align: center;
-        }
-        .sidebar-left .cat-item.active {
-            background: #fff7ed;
-            border-bottom: 4px solid var(--primary);
-            border-left: none;
-            color: var(--primary);
-        }
-        .sidebar-left .cat-item h4{
-            font-size: 15px;
-            margin: 0;
-        }
-
-        #cart-summary button{
-            position: fixed;
-        }
-        #cart-summary button .total-box{
-            float: left;
-            height: auto;
-            width: 100%;
-            font-size: 15px;
-            color: black;
-        }
-    }
-
+ 
 </style>
 
 <div class="menu-wrapper">
@@ -164,6 +56,10 @@ $items      = $wpdb->get_results($wpdb->prepare("SELECT * FROM $items_table WHER
     </div> -->
 
     <div class="main-content">
+        <div class="table-sticky-header">
+            <span style="font-weight:bold; color:#1e293b;"><?php echo esc_html($current_table->table_name); ?></span>
+            <span style="font-size:12px; color:#64748b;"><?php echo esc_html($res_info->restaurant_name); ?></span>
+        </div>
         <div class="item-grid">
             <?php foreach($items as $item): 
                 $i_name  = $item->item_name ?? $item->name ?? 'Item';
@@ -205,10 +101,27 @@ $items      = $wpdb->get_results($wpdb->prepare("SELECT * FROM $items_table WHER
     </div>
 
     <div class="sidebar-right">
-        <div style="padding:20px; font-weight:bold; font-size:18px; border-bottom:1px solid #f1f5f9;">Order Details</div>
+        <div style="padding:20px; border-bottom:1px solid #f1f5f9;">
+            <div style="font-weight:bold; font-size:20px; color:#1e293b;">
+                Order Details
+            </div>
+            <div style="font-size:12px; color:var(--primary); text-transform:uppercase; letter-spacing:1px; font-weight:700;">
+                <?php echo esc_html($current_table->table_name); ?>  <span style="float:right; text-transform:capitalize;">at <?php echo esc_html($res_info->restaurant_name); ?></span>
+            </div>
+        </div>
+        
         <div id="cart-list" style="flex:1; overflow-y:auto; padding:15px;"></div>
         <div id="cart-summary" style="padding:20px; background:#f8fafc; border-top:1px solid #e2e8f0;"></div>
     </div>
+</div>
+
+<!-- Floating Button for Mobile -->
+<div id="mobile-order-btn" class="floating-order-btn" onclick="showOrderPreview()">
+    <div>
+        <span class="count-tag" id="mobile-count">0 Items</span>
+        <span>View Order</span>
+    </div>
+    <span id="mobile-total">0.00৳</span>
 </div>
 
 <div id="vModal" class="v-modal">
@@ -216,15 +129,16 @@ $items      = $wpdb->get_results($wpdb->prepare("SELECT * FROM $items_table WHER
 </div>
 
 <script>
-   const qrrs_vars = {
-        ajax_url: '<?php echo admin_url('admin-ajax.php'); ?>',
-        // Action Name oboshshoy 'qr_order_nonce' hote hobe ja plugin file-e verify kora hochche
-        nonce: '<?php echo wp_create_nonce("qr_order_nonce"); ?>' 
-    };
+const qrrs_vars = {
+    ajax_url: '<?php echo admin_url('admin-ajax.php'); ?>',
+    nonce: '<?php echo wp_create_nonce("qr_order_nonce"); ?>' 
+};
+
 const TAX_RATE = <?php echo floatval($db_tax); ?>;
 const SC_RATE  = <?php echo floatval($db_sc); ?>;
 let cart = [];
 
+// ১. আইটেম প্রিপেয়ার করা (Variants থাকলে পপআপ দেখাবে)
 function prepareItem(item) {
     let rawVar = item.variants || item.variants_json || "";
     let variants = [];
@@ -252,6 +166,7 @@ function prepareItem(item) {
     }
 }
 
+// ২. ভেরিয়েন্ট কনফার্ম করা
 function confirmAdd(item) {
     let selected = [];
     document.querySelectorAll('.v_opt_cb:checked').forEach(cb => selected.push(cb.value));
@@ -259,6 +174,7 @@ function confirmAdd(item) {
     closeM();
 }
 
+// ৩. কার্টে যোগ করা
 function addToCart(item, variants) {
     let key = item.id + variants.join('');
     let exist = cart.find(x => x.key === key);
@@ -274,8 +190,8 @@ function addToCart(item, variants) {
     render();
 }
 
+// ৪. কোয়ান্টিটি আপডেট (Plus/Minus বাটন)
 function updateQty(id, delta) {
-    // Finds the first item with this ID in cart
     let itemInCart = cart.find(x => x.id == id);
     if(itemInCart) {
         itemInCart.qty += delta;
@@ -284,11 +200,13 @@ function updateQty(id, delta) {
     }
 }
 
+// ৫. রেন্ডার ফাংশন (সবচেয়ে গুরুত্বপূর্ণ পরিবর্তন এখানে)
 function render() {
     let html = '';
     let sub = 0, taxable = 0;
+    let totalItemsCount = 0;
 
-    // Reset UI before rendering
+    // কার্ড UI রিসেট
     document.querySelectorAll('.item-card').forEach(c => {
         c.classList.remove('selected');
         let id = c.id.replace('card-','');
@@ -298,12 +216,13 @@ function render() {
         if(ctrl) ctrl.style.display = 'none';
     });
 
+    // কার্ট আইটেম প্রসেস
     cart.forEach(i => {
         let total = i.price * i.qty;
         sub += total;
+        totalItemsCount += i.qty;
         if(i.tax_free === 0) taxable += total;
 
-        // Sync Card UI
         let b = document.getElementById('badge-'+i.id);
         let ctrl = document.getElementById('controls-'+i.id);
         let card = document.getElementById('card-'+i.id);
@@ -324,28 +243,43 @@ function render() {
         </div>`;
     });
 
+    // সাইডবার লিস্ট আপডেট
     document.getElementById('cart-list').innerHTML = cart.length ? html : '<div style="text-align:center; color:#94a3b8; margin-top:50px;">Your cart is empty</div>';
 
+    // সামারি ক্যালকুলেশন
+    let vat = taxable * (TAX_RATE / 100);
+    let sc = sub * (SC_RATE / 100);
+    let grand = sub + vat + sc;
+
     if(cart.length > 0) {
-        let vat = taxable * (TAX_RATE / 100);
-        let sc = sub * (SC_RATE / 100);
-        let grand = sub + vat + sc;
         document.getElementById('cart-summary').innerHTML = `
             <div style="display:flex; justify-content:space-between; font-size:14px; color:#64748b; margin-bottom:5px;"><span>Subtotal</span><span>${sub.toFixed(2)}৳</span></div>
             <div style="display:flex; justify-content:space-between; font-size:14px; color:#64748b; margin-bottom:5px;"><span>VAT (${TAX_RATE}%)</span><span>${vat.toFixed(2)}৳</span></div>
             <div style="display:flex; justify-content:space-between; font-size:14px; color:#64748b; margin-bottom:8px;"><span>S. Charge (${SC_RATE}%)</span><span>${sc.toFixed(2)}৳</span></div>
             <div class="total-box" style="display:flex; justify-content:space-between;"><span>Total</span><span>${grand.toFixed(2)}৳</span></div>
-
-            <button style="width:100%; background:var(--primary); color:#fff; border:none; padding:16px; border-radius:14px; font-weight:bold; margin-top:20px; cursor:pointer; font-size:16px;" 
-                    onclick="showOrderPreview()">
-                PLACE ORDER
-            </button>
+            <button style="width:100%; background:var(--primary); color:#fff; border:none; padding:16px; border-radius:14px; font-weight:bold; margin-top:20px; cursor:pointer; font-size:16px;" onclick="showOrderPreview()">PLACE ORDER</button>
         `;
-    } else { document.getElementById('cart-summary').innerHTML = ''; }
+    } else { 
+        document.getElementById('cart-summary').innerHTML = ''; 
+    }
+
+    // --- ফ্লোটিং মোবাইল বাটন কন্ট্রোল ---
+    const mobileBtn = document.getElementById('mobile-order-btn');
+    const mobileCount = document.getElementById('mobile-count');
+    const mobileTotal = document.getElementById('mobile-total');
+
+    if(mobileBtn) {
+        if(cart.length > 0 && window.innerWidth <= 799) {
+            mobileBtn.style.display = 'flex';
+            mobileCount.innerText = totalItemsCount + (totalItemsCount > 1 ? ' Items' : ' Item');
+            mobileTotal.innerText = grand.toFixed(2) + '৳';
+        } else {
+            mobileBtn.style.display = 'none';
+        }
+    }
 }
 
-
-// ১. Order Summary Popup dekhano
+// ৬. অর্ডার প্রিভিউ (পপআপ)
 function showOrderPreview() {
     if (cart.length === 0) return alert('Your cart is empty!');
 
@@ -359,51 +293,66 @@ function showOrderPreview() {
         
         itemsHtml += `
         <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:14px; border-bottom:1px solid #f1f5f9; padding-bottom:5px;">
-            <span>${i.qty}x ${i.name} ${i.variants.length ? '<br><small>('+i.variants.join(', ')+')</small>' : ''}</span>
+            <span>${i.qty}x ${i.name} ${i.variants.length ? '<br><small style="color:#64748b;">('+i.variants.join(', ')+')</small>' : ''}</span>
             <span style="font-weight:600;">${total.toFixed(2)}৳</span>
         </div>`;
     });
 
+    // আলাদা ক্যালকুলেশন
     let vat = taxable * (TAX_RATE / 100);
     let sc = sub * (SC_RATE / 100);
     let grand = sub + vat + sc;
 
     let previewHtml = `
-        <h3 style="margin-top:0; border-bottom:2px solid var(--primary); padding-bottom:10px;">Confirm Your Order</h3>
-        <div style="max-height: 300px; overflow-y: auto; margin-bottom:15px;">
+        <div style="text-align:center; margin-bottom:20px;">
+             <span style="background:var(--primary); color:#fff; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:bold;">CONFIRMING ORDER</span>
+             <h2 style="margin:10px 0 0 0; color:#1e293b;"><?php echo esc_html($current_table->table_name); ?></h2>
+        </div>
+        
+        <div style="max-height: 250px; overflow-y: auto; margin-bottom:15px; border: 1px solid #f1f5f9; padding: 10px; border-radius: 8px;">
             ${itemsHtml}
         </div>
-        <div style="background:#f8fafc; padding:15px; border-radius:10px;">
-            <div style="display:flex; justify-content:space-between; font-size:13px;"><span>Subtotal:</span><span>${sub.toFixed(2)}৳</span></div>
-            <div style="display:flex; justify-content:space-between; font-size:13px;"><span>Tax & Charges:</span><span>${(vat + sc).toFixed(2)}৳</span></div>
-            <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:18px; margin-top:10px; color:var(--primary);">
-                <span>Grand Total:</span><span>${grand.toFixed(2)}৳</span>
+
+        <div style="background:#f8fafc; padding:15px; border-radius:12px; border: 1px solid #e2e8f0;">
+            <div style="display:flex; justify-content:space-between; font-size:14px; color:#475569; margin-bottom:6px;">
+                <span>Subtotal:</span>
+                <span>${sub.toFixed(2)}৳</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:14px; color:#475569; margin-bottom:6px;">
+                <span>VAT (${TAX_RATE}%):</span>
+                <span>${vat.toFixed(2)}৳</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:14px; color:#475569; margin-bottom:10px;">
+                <span>Service Charge (${SC_RATE}%):</span>
+                <span>${sc.toFixed(2)}৳</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:18px; border-top: 2px dashed #cbd5e1; pt:10px; margin-top:5px; color:#1e293b;">
+                <span style="padding-top:10px;">Grand Total:</span>
+                <span style="padding-top:10px; color:var(--primary);">${grand.toFixed(2)}৳</span>
             </div>
         </div>
-        <button id="finalConfirmBtn" onclick="processFinalOrder(${grand})" style="width:100%; background:#22c55e; color:#fff; border:none; padding:15px; border-radius:12px; font-weight:bold; margin-top:15px; cursor:pointer; font-size:16px;">
+
+        <button id="finalConfirmBtn" onclick="processFinalOrder(${grand})" style="width:100%; background:#22c55e; color:#fff; border:none; padding:15px; border-radius:12px; font-weight:bold; margin-top:15px; cursor:pointer; font-size:16px; box-shadow: 0 4px 6px -1px rgba(34, 197, 94, 0.2);">
             CONFIRM ORDER
         </button>
-        <button onclick="closeM()" style="width:100%; background:none; border:none; margin-top:10px; color:#94a3b8; cursor:pointer;">Cancel</button>
+        <button onclick="closeM()" style="width:100%; background:none; border:none; margin-top:10px; color:#94a3b8; cursor:pointer; font-weight:500;">Cancel</button>
     `;
 
     document.getElementById('vBody').innerHTML = previewHtml;
     document.getElementById('vModal').style.display = 'flex';
 }
 
-// ২. Real Order Placement (AJAX)
-// ২. Real Order Placement (AJAX)
+// ৭. ফাইনাল অর্ডার প্রসেস (AJAX)
 function processFinalOrder(grandTotal) {
     const btn = document.getElementById('finalConfirmBtn');
     btn.disabled = true;
     btn.innerText = 'Sending...';
 
-    // ক্যালকুলেশনগুলো পুনরায় বের করা যাতে প্লাগইন হ্যান্ডলারের সাথে মিলে যায়
     let sub = cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
     let taxable = cart.filter(i => i.tax_free === 0).reduce((sum, i) => sum + (i.price * i.qty), 0);
     let vatVal = taxable * (TAX_RATE / 100);
     let scVal = sub * (SC_RATE / 100);
 
-    // আইটেমগুলো প্রসেস করা (ব্যাকএন্ডের variants_selected কলামের জন্য)
     let processedCart = cart.map(item => {
         return {
             id: item.id,
@@ -450,10 +399,9 @@ function processFinalOrder(grandTotal) {
     });
 }
 
-
-
 function closeM() { document.getElementById('vModal').style.display = 'none'; }
 
+// ক্যাটাগরি ফিল্টার
 document.querySelectorAll('.cat-item').forEach(el => {
     el.onclick = function() {
         document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('active'));
@@ -464,4 +412,8 @@ document.querySelectorAll('.cat-item').forEach(el => {
         });
     }
 });
+
+// উইন্ডো রিসাইজ হ্যান্ডলার
+window.onresize = function() { render(); };
+
 </script>

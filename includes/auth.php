@@ -103,7 +103,7 @@ class QRRS_Auth {
             return true;
         }
 
-        wp_die( __( 'Apnar ei section-e dhokar onumoti nei.', 'qr-restaurant-system' ) );
+        wp_die( __( 'Access Denied: Your status does not allow access to this section', 'qr-restaurant-system' ) );
     }
 
     /**
@@ -111,7 +111,7 @@ class QRRS_Auth {
      */
     public static function is_admin_only() {
         if ( ! current_user_can( 'administrator' ) ) {
-            wp_die( __( 'Sudhu matro Main Administrator ei kajti korte parben.', 'qr-restaurant-system' ) );
+            wp_die( __( 'This action is restricted to the Administrator / Restaurant only.', 'qr-restaurant-system' ) );
         }
     }
 

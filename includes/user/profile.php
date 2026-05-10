@@ -132,8 +132,8 @@ $restaurant = qrrs_get_restaurant($res_id);
                     </div>
                 </div>
 
-                <div style="margin-top: 30px;">
-                    <button type="submit" name="update_profile" class="save-btn" style="width: 200px;">Save Changes</button>
+                <div class="form-footer" style="margin-top: 30px;">
+                    <button type="submit" name="update_profile">Save Changes</button>
                 </div>
             </div>
         </div>
@@ -163,14 +163,4 @@ jQuery(document).ready(function($){
 
 
 <style>
-.qrrs-profile-wrapper { background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
-.qrrs-grid { display: grid; }
-.form-row { display: flex; gap: 20px; margin-bottom: 20px; }
-.form-col { flex: 1; display: flex; flex-direction: column; }
-.form-col label { font-weight: 600; margin-bottom: 8px; color: #444; font-size: 14px; }
-.form-col input, .form-col textarea { padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
-.save-btn { background: #27ae60; color: #fff; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-.save-btn:hover { background: #219150; }
-.success-msg { background: #e8f5e9; color: #2e7d32; padding: 10px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #c8e6c9; }
-.error-msg { background: #ffebee; color: #c62828; padding: 10px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #ffcdd2; }
 </style>

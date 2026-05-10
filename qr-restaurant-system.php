@@ -16,6 +16,7 @@ define( 'QRRS_URL', plugin_dir_url( __FILE__ ) );
 class QR_Restaurant_System {
 
     public function __construct() {
+        add_action('init', [$this, 'start_session'], 1);
         $this->includes();
 
         register_activation_hook( __FILE__, [ $this, 'activate' ] );
@@ -38,10 +39,29 @@ class QR_Restaurant_System {
         require_once QRRS_PATH . 'includes/subscriptions/subscription-functions.php';
         require_once QRRS_PATH . 'includes/waiter/waiter-functions.php';
 
+        require_once QRRS_PATH . 'includes/reports/report-functions.php';
+
         if ( file_exists( QRRS_PATH . 'includes/kitchen/kitchen-functions.php' ) ) {
             require_once QRRS_PATH . 'includes/kitchen/kitchen-functions.php';
         }
+
+        // Report AJAX Handlers
+        require_once QRRS_PATH . 'includes/reports/handlers/sales-handler.php';
+        require_once QRRS_PATH . 'includes/reports/handlers/item-wise-handler.php';
+        require_once QRRS_PATH . 'includes/reports/handlers/category-wise-handler.php';
+        require_once QRRS_PATH . 'includes/reports/handlers/order-type-handler.php';
+        require_once QRRS_PATH . 'includes/reports/handlers/order-report-handler.php';
+        require_once QRRS_PATH . 'includes/reports/handlers/kitchen-report-handler.php';
+        require_once QRRS_PATH . 'includes/reports/handlers/staff-report-handler.php';
+        require_once QRRS_PATH . 'includes/reports/handlers/payment-tax-handler.php';
+
     }
+
+    public function start_session() {
+    if ( ! session_id() ) {
+        session_start();
+    }
+}
 
     public function activate() {
         if ( class_exists( 'QRRS_Database' ) ) {
@@ -128,10 +148,34 @@ class QR_Restaurant_System {
         wp_enqueue_media();
         wp_enqueue_script('jquery');
 
+        // --- External Styles (Agey load kora bhalo) ---
+        wp_enqueue_style( 'bootstrap-css', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css', array(), '5.3.3' );
+        wp_enqueue_style( 'font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css', array(), '6.5.1' );
+        wp_enqueue_style( 'flatpickr-css', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css', array(), '4.6.13' );
+       wp_enqueue_style( 
+            'material-icons-outlined', 
+            'https://fonts.googleapis.com/css2?family=Material+Icons+Outlined&display=block', 
+            array(), 
+            null 
+        );
+        // --- Custom Styles (Sob shesh-e jate override kora jay) ---
+        wp_enqueue_style(
+            'qrrs-frontend-style',
+            QRRS_URL . 'assets/css/frontend.css',
+            ['bootstrap-css'], // Bootstrap-er upor nirbhor korle
+            '1.2.0'
+        );
+
+        // --- External Scripts ---
+        wp_enqueue_script('chart-js', 'https://cdn.jsdelivr.net/npm/chart.js', [], '4.4.2', true); // Updated version
+        wp_enqueue_script( 'flatpickr-js', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.js', [], '4.6.13', true );
+        wp_enqueue_script( 'bootstrap-js', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js', array('jquery'), '5.3.3', true );
+
+        // --- Custom Scripts ---
         wp_enqueue_script(
             'qrrs-app-js',
             QRRS_URL . 'assets/js/app.js',
-            ['jquery'],
+            ['jquery', 'bootstrap-js'], // Bootstrap ba jQuery dorkar hole
             '1.2.0',
             true
         );
@@ -142,12 +186,20 @@ class QR_Restaurant_System {
             'qr_nonce' => wp_create_nonce('qr_order_nonce')
         ]);
 
-        wp_enqueue_style(
-            'qrrs-frontend-style',
-            QRRS_URL . 'assets/css/frontend.css',
-            [],
-            '1.2.0'
-        );
+
+        $plugin_pages = array('restaurant-login', 'restaurant-dashboard', 'waiter-dashboard', 'kitchen-dashboard', 'billing-counter', 'restaurant-menu');
+    
+        if ( is_page($plugin_pages) ) {
+            // Sudhu ei page gulor jonno ekta inline CSS add korbe
+            $custom_css = "
+                .site-header, .site-footer, .header, .footer, #masthead, #colophon { 
+                    display: none !important; 
+                }
+                /* Theme jodi body padding dey seta remove korar jonno */
+                body { padding-top: 0 !important; margin-top: 0 !important; }
+            ";
+            wp_add_inline_style( 'qrrs-frontend-style', $custom_css );
+        }
     }
 
     private function register_ajax_handlers() {
@@ -158,6 +210,9 @@ class QR_Restaurant_System {
         add_action('wp_ajax_nopriv_fetch_pos_items', 'fetch_pos_items_handler');
 
         add_action('wp_ajax_update_dashboard_order_status', 'handle_update_dashboard_order_status');
+    
+        add_action('wp_ajax_fetch_sales_report_data', 'handle_fetch_sales_report_data');
+        add_action('wp_ajax_fetch_item_wise_report', 'handle_fetch_item_wise_report');
     }
 }
 
@@ -272,8 +327,7 @@ function handle_qr_order_placement() {
  * Pending > Processing > Ready > Served > Completed > Paid (and Cancelled)
  */
 function handle_update_dashboard_order_status() {
-    // এখানে ভুল ছিল: qrrs_nonce_action এর বদলে qr_order_nonce হবে কারণ আপনি ড্যাশবোর্ডে qr_nonce পাঠাচ্ছেন
-    check_ajax_referer('qr_order_nonce', 'security'); 
+    check_ajax_referer('qr_order_nonce', 'security');
 
     if (!isset($_POST['order_id']) || !isset($_POST['status'])) {
         wp_send_json_error('Missing data.');
@@ -284,28 +338,52 @@ function handle_update_dashboard_order_status() {
     $status      = sanitize_text_field($_POST['status']);
     $order_table = $wpdb->prefix . 'qrrs_orders';
 
-    // আপনার ডাটাবেসে কলামের নাম 'order_status' নাকি শুধু 'status'? 
-    // আগের কোড অনুযায়ী এটি 'order_status' হওয়ার কথা।
-    $update_data = ['order_status' => $status];
+    // ✅ array() syntax — PHP compatibility
+    $update_data = array('order_status' => $status);
 
-    if ($status === 'paid') {
+    // ✅ ready বা served হলে ready_at সেট করো
+    if ( $status === 'ready' || $status === 'served' ) {
+        $update_data['ready_at'] = current_time('mysql');
+    }
+
+    if ( $status === 'paid' ) {
         $update_data['payment_status'] = 'paid';
         $update_data['order_status']   = 'completed';
     }
 
-    $updated = $wpdb->update($order_table, $update_data, ['id' => $order_id]);
+    $updated = $wpdb->update(
+        $order_table,
+        $update_data,
+        array('id' => $order_id)
+    );
 
-    if ($updated !== false) {
-        // আইটেমগুলোর স্ট্যাটাসও আপডেট
+    if ( $updated !== false ) {
         $wpdb->update(
             $wpdb->prefix . 'qrrs_order_items',
-            ['item_status' => $status],
-            ['order_id' => $order_id]
+            array('item_status' => $status),
+            array('order_id' => $order_id)
         );
         wp_send_json_success('Order status updated to ' . $status);
     } else {
-        wp_send_json_error('Database update failed.');
+        wp_send_json_error('Database update failed: ' . $wpdb->last_error);
     }
 }
+
+
+add_action('wp_ajax_qrrs_set_active_restaurant', function() {
+    if (current_user_can('manage_options')) { // Security check
+        $res_id = intval($_POST['res_id']);
+        if (!session_id()) session_start();
+        $_SESSION['qrrs_selected_res_id'] = $res_id;
+        
+        // Response success pathano
+        wp_send_json_success(['message' => 'Restaurant Updated']);
+    }
+    wp_die();
+});
+
+
+
+
 
 new QR_Restaurant_System();
