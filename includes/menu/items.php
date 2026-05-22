@@ -7,7 +7,11 @@ $cat_table   = $wpdb->prefix . 'qrrs_categories';
 $res_table   = $wpdb->prefix . 'qrrs_restaurants';
 
 /**
+<<<<<<< HEAD
  * 1. Restaurant ID Logic
+=======
+ * 1. FIXED: Restaurant ID Logic (Admin Session + Staff Logic)
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
  */
 if ( current_user_can('administrator') ) {
     if ( ! session_id() ) session_start();
@@ -16,6 +20,10 @@ if ( current_user_can('administrator') ) {
     $current_res_id = get_user_meta(get_current_user_id(), 'assigned_restaurant', true);
 }
 
+<<<<<<< HEAD
+=======
+// Redirect/Block jodi restaurant select na thake
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 if (!$current_res_id && !isset($_GET['edit_id'])) {
     echo '<div style="padding:50px; text-align:center;"><h3>❌ Please select a restaurant from the dashboard first.</h3></div>';
     return;
@@ -25,6 +33,11 @@ $edit_id   = isset($_GET['edit_id']) ? intval($_GET['edit_id']) : 0;
 $edit_item = $edit_id ? $wpdb->get_row($wpdb->prepare("SELECT * FROM $items_table WHERE id = %d", $edit_id)) : null;
 $base_url  = home_url('/restaurant-dashboard/?tab=items');
 
+<<<<<<< HEAD
+=======
+$base_url = home_url('/restaurant-dashboard/?tab=items');
+
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 // --- 2. HANDLE SAVE / UPDATE LOGIC ---
 if ( isset($_POST['save_item_action']) ) {
     if (!isset($_POST['save_item_nonce_field']) || !wp_verify_nonce($_POST['save_item_nonce_field'], 'save_item_nonce')) {
@@ -37,7 +50,7 @@ if ( isset($_POST['save_item_action']) ) {
     $variants_array = array_filter($variants_array);
 
     $data = [
-        'restaurant_id' => intval($_POST['restaurant_id']),
+        'restaurant_id' => intval($_POST['restaurant_id']), // Hidden field theke asbe
         'category_id'   => intval($_POST['category_id']),
         'item_name'     => sanitize_text_field($_POST['item_name']),
         'price'         => floatval($_POST['price']),
@@ -67,6 +80,10 @@ if ( isset($_GET['action']) && $_GET['action'] == 'delete_item' ) {
     if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'delete_item_nonce')) {
         wp_die('Security check failed');
     }
+<<<<<<< HEAD
+=======
+    // Safety: Shudhu active restaurant er item delete kora jabe
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     $wpdb->query($wpdb->prepare("DELETE FROM $items_table WHERE id = %d AND restaurant_id = %d", intval($_GET['id']), $current_res_id));
     wp_safe_redirect($base_url . '&status=deleted');
     exit;
@@ -75,7 +92,11 @@ if ( isset($_GET['action']) && $_GET['action'] == 'delete_item' ) {
 // --- Status Toast Display ---
 if(isset($_GET['status'])) {
     if($_GET['status'] == 'error') {
+<<<<<<< HEAD
         echo "<div class='qrrs-toast error'>Error: Could not save item.</div>";
+=======
+        echo "<div style='background:#fee2e2; color:#991b1b; padding:12px; border-radius:5px; margin-bottom:20px; border-left:5px solid #991b1b;'>Error: Could not save item.</div>";
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     } else {
         $msg = ($_GET['status'] == 'updated') ? 'Item updated!' : (($_GET['status'] == 'inserted') ? 'New item added!' : 'Item deleted!');
         echo "<div class='qrrs-toast success'>$msg</div>";
@@ -263,8 +284,11 @@ if(isset($_GET['status'])) {
         <?php endif; ?>
     </div>
 </div>
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 <script>
 jQuery(document).ready(function($){
     // --- Toast Hide Logic ---

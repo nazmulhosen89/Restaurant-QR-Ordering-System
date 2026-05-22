@@ -89,6 +89,7 @@ $db_sc    = $res_info->service_charge_percent ?? 0;
 $today_start = current_time('Y-m-d 00:00:00');
 $today_end   = current_time('Y-m-d 23:59:59');
 
+<<<<<<< HEAD
 $active_order = $wpdb->get_row($wpdb->prepare("
     SELECT 
         o.id, 
@@ -224,6 +225,11 @@ $items = $wpdb->get_results($wpdb->prepare(
     "SELECT * FROM $items_table WHERE restaurant_id = %d", $res_id
 ));
 ?>
+=======
+<style>
+ 
+</style>
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 
 <div class="menu-wrapper">
     <!-- Left Sidebar: Categories -->
@@ -244,6 +250,7 @@ $items = $wpdb->get_results($wpdb->prepare(
     <!-- Main Content: Items -->
     <div class="main-content">
         <div class="table-sticky-header">
+<<<<<<< HEAD
             <div>
                 <div style="font-weight:bold; color:#1e293b;">
                     <?php echo esc_html($current_table->table_name); ?>
@@ -254,6 +261,11 @@ $items = $wpdb->get_results($wpdb->prepare(
             </div>
         </div>
 
+=======
+            <span style="font-weight:bold; color:#1e293b;"><?php echo esc_html($current_table->table_name); ?></span>
+            <span style="font-size:12px; color:#64748b;"><?php echo esc_html($res_info->restaurant_name); ?></span>
+        </div>
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         <div class="item-grid">
             <?php foreach($items as $item): 
                 $i_name   = $item->item_name ?? $item->name ?? 'Item';
@@ -301,14 +313,29 @@ $items = $wpdb->get_results($wpdb->prepare(
     <!-- Right Sidebar: Cart -->
     <div class="sidebar-right">
         <div style="padding:20px; border-bottom:1px solid #f1f5f9;">
+<<<<<<< HEAD
             <div style="font-weight:bold; font-size:20px; color:#1e293b;">Order Details</div>
         </div>
+=======
+            <div style="font-weight:bold; font-size:20px; color:#1e293b;">
+                Order Details
+            </div>
+            <div style="font-size:12px; color:var(--primary); text-transform:uppercase; letter-spacing:1px; font-weight:700;">
+                <?php echo esc_html($current_table->table_name); ?>  <span style="float:right; text-transform:capitalize;">at <?php echo esc_html($res_info->restaurant_name); ?></span>
+            </div>
+        </div>
+        
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         <div id="cart-list" style="flex:1; overflow-y:auto; padding:15px;"></div>
         <div id="cart-summary" style="padding:20px; background:#f8fafc; border-top:1px solid #e2e8f0;"></div>
     </div>
 </div>
 
+<<<<<<< HEAD
 <!-- Mobile Floating Button -->
+=======
+<!-- Floating Button for Mobile -->
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 <div id="mobile-order-btn" class="floating-order-btn" onclick="showOrderPreview()">
     <div>
         <span class="count-tag" id="mobile-count">0 Items</span>
@@ -317,7 +344,10 @@ $items = $wpdb->get_results($wpdb->prepare(
     <span id="mobile-total">0.00৳</span>
 </div>
 
+<<<<<<< HEAD
 <!-- Variant / Confirm Modal -->
+=======
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 <div id="vModal" class="v-modal">
     <div class="v-modal-content" id="vBody"></div>
 </div>
@@ -343,14 +373,22 @@ $items = $wpdb->get_results($wpdb->prepare(
 <script>
 const qrrs_vars = {
     ajax_url: '<?php echo admin_url('admin-ajax.php'); ?>',
+<<<<<<< HEAD
     nonce: '<?php echo wp_create_nonce("qr_order_nonce"); ?>'
+=======
+    nonce: '<?php echo wp_create_nonce("qr_order_nonce"); ?>' 
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 };
 
 const TAX_RATE = <?php echo floatval($db_tax); ?>;
 const SC_RATE  = <?php echo floatval($db_sc); ?>;
 let cart = [];
 
+<<<<<<< HEAD
 // ১. আইটেম প্রিপেয়ার — ভেরিয়েন্ট থাকলে মোডাল, না থাকলে সরাসরি কার্টে
+=======
+// ১. আইটেম প্রিপেয়ার করা (Variants থাকলে পপআপ দেখাবে)
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 function prepareItem(item) {
     let rawVar = item.variants || item.variants_json || "";
     let variants = [];
@@ -384,7 +422,11 @@ function prepareItem(item) {
     }
 }
 
+<<<<<<< HEAD
 // ২. ভেরিয়েন্ট কনফার্ম
+=======
+// ২. ভেরিয়েন্ট কনফার্ম করা
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 function confirmAdd(item) {
     let selected = [];
     document.querySelectorAll('.v_opt_cb:checked').forEach(cb => selected.push(cb.value));
@@ -412,20 +454,37 @@ function addToCart(item, variants) {
     render();
 }
 
+<<<<<<< HEAD
 // ৪. কোয়ান্টিটি আপডেট (item card +/- বাটন)
 function updateQty(id, delta) {
     let itemIdx = cart.findIndex(x => x.id == id);
     if (itemIdx > -1) {
         cart[itemIdx].qty += delta;
         if (cart[itemIdx].qty <= 0) cart.splice(itemIdx, 1);
+=======
+// ৪. কোয়ান্টিটি আপডেট (Plus/Minus বাটন)
+function updateQty(id, delta) {
+    let itemInCart = cart.find(x => x.id == id);
+    if(itemInCart) {
+        itemInCart.qty += delta;
+        if(itemInCart.qty <= 0) cart = cart.filter(x => x.key !== itemInCart.key);
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         render();
     }
 }
 
+<<<<<<< HEAD
 // ৫. রেন্ডার ফাংশন
 function render() {
     let html = '';
     let sub = 0, taxable = 0, totalItemsCount = 0;
+=======
+// ৫. রেন্ডার ফাংশন (সবচেয়ে গুরুত্বপূর্ণ পরিবর্তন এখানে)
+function render() {
+    let html = '';
+    let sub = 0, taxable = 0;
+    let totalItemsCount = 0;
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 
     // কার্ড UI রিসেট
     document.querySelectorAll('.item-card').forEach(c => {
@@ -437,15 +496,30 @@ function render() {
         if (ctrl) ctrl.style.display = 'none';
     });
 
+    // কার্ট আইটেম প্রসেস
     cart.forEach(i => {
         let total = i.price * i.qty;
         sub += total;
         totalItemsCount += i.qty;
+<<<<<<< HEAD
         if (i.tax_free === 0) taxable += total;
 
         let b    = document.getElementById('badge-' + i.id);
         let ctrl = document.getElementById('controls-' + i.id);
         let card = document.getElementById('card-' + i.id);
+=======
+        if(i.tax_free === 0) taxable += total;
+
+        let b = document.getElementById('badge-'+i.id);
+        let ctrl = document.getElementById('controls-'+i.id);
+        let card = document.getElementById('card-'+i.id);
+        if(b) { b.innerText = i.qty; b.style.display = 'flex'; }
+        if(ctrl) { 
+            ctrl.style.display = 'flex'; 
+            ctrl.querySelector('.q-text').innerText = i.qty; 
+        }
+        if(card) card.classList.add('selected');
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 
         if (b)    { b.innerText = i.qty; b.style.display = 'flex'; }
         if (ctrl) { ctrl.style.display = 'flex'; ctrl.querySelector('.q-text').innerText = i.qty; }
@@ -463,6 +537,7 @@ function render() {
                  </div>`;
     });
 
+<<<<<<< HEAD
     // ডেস্কটপ সাইডবার
     document.getElementById('cart-list').innerHTML = cart.length
         ? html
@@ -501,13 +576,49 @@ function render() {
             mobileBtn.style.display = 'flex';
             document.getElementById('mobile-count').innerText = totalItemsCount + ' Items';
             document.getElementById('mobile-total').innerText = grand.toFixed(2) + '৳';
+=======
+    // সাইডবার লিস্ট আপডেট
+    document.getElementById('cart-list').innerHTML = cart.length ? html : '<div style="text-align:center; color:#94a3b8; margin-top:50px;">Your cart is empty</div>';
+
+    // সামারি ক্যালকুলেশন
+    let vat = taxable * (TAX_RATE / 100);
+    let sc = sub * (SC_RATE / 100);
+    let grand = sub + vat + sc;
+
+    if(cart.length > 0) {
+        document.getElementById('cart-summary').innerHTML = `
+            <div style="display:flex; justify-content:space-between; font-size:14px; color:#64748b; margin-bottom:5px;"><span>Subtotal</span><span>${sub.toFixed(2)}৳</span></div>
+            <div style="display:flex; justify-content:space-between; font-size:14px; color:#64748b; margin-bottom:5px;"><span>VAT (${TAX_RATE}%)</span><span>${vat.toFixed(2)}৳</span></div>
+            <div style="display:flex; justify-content:space-between; font-size:14px; color:#64748b; margin-bottom:8px;"><span>S. Charge (${SC_RATE}%)</span><span>${sc.toFixed(2)}৳</span></div>
+            <div class="total-box" style="display:flex; justify-content:space-between;"><span>Total</span><span>${grand.toFixed(2)}৳</span></div>
+            <button style="width:100%; background:var(--primary); color:#fff; border:none; padding:16px; border-radius:14px; font-weight:bold; margin-top:20px; cursor:pointer; font-size:16px;" onclick="showOrderPreview()">PLACE ORDER</button>
+        `;
+    } else { 
+        document.getElementById('cart-summary').innerHTML = ''; 
+    }
+
+    // --- ফ্লোটিং মোবাইল বাটন কন্ট্রোল ---
+    const mobileBtn = document.getElementById('mobile-order-btn');
+    const mobileCount = document.getElementById('mobile-count');
+    const mobileTotal = document.getElementById('mobile-total');
+
+    if(mobileBtn) {
+        if(cart.length > 0 && window.innerWidth <= 799) {
+            mobileBtn.style.display = 'flex';
+            mobileCount.innerText = totalItemsCount + (totalItemsCount > 1 ? ' Items' : ' Item');
+            mobileTotal.innerText = grand.toFixed(2) + '৳';
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         } else {
             mobileBtn.style.display = 'none';
         }
     }
 }
 
+<<<<<<< HEAD
 // ৬. অর্ডার প্রিভিউ মোডাল
+=======
+// ৬. অর্ডার প্রিভিউ (পপআপ)
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 function showOrderPreview() {
     if (cart.length === 0) return alert('Your cart is empty!');
 
@@ -517,6 +628,7 @@ function showOrderPreview() {
     cart.forEach(i => {
         let total = i.price * i.qty;
         sub += total;
+<<<<<<< HEAD
         if (i.tax_free === 0) taxable += total;
         itemsHtml += `<div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:14px; border-bottom:1px solid #f1f5f9; padding-bottom:5px;">
                         <span>${i.qty}x ${i.name} 
@@ -528,10 +640,25 @@ function showOrderPreview() {
 
     let vat   = taxable * (TAX_RATE / 100);
     let sc    = sub * (SC_RATE / 100);
+=======
+        if(i.tax_free === 0) taxable += total;
+        
+        itemsHtml += `
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:14px; border-bottom:1px solid #f1f5f9; padding-bottom:5px;">
+            <span>${i.qty}x ${i.name} ${i.variants.length ? '<br><small style="color:#64748b;">('+i.variants.join(', ')+')</small>' : ''}</span>
+            <span style="font-weight:600;">${total.toFixed(2)}৳</span>
+        </div>`;
+    });
+
+    // আলাদা ক্যালকুলেশন
+    let vat = taxable * (TAX_RATE / 100);
+    let sc = sub * (SC_RATE / 100);
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     let grand = sub + vat + sc;
 
     let previewHtml = `
         <div style="text-align:center; margin-bottom:20px;">
+<<<<<<< HEAD
             <span style="background:var(--primary); color:#fff; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:bold;">
                 CONFIRM ORDER
             </span>
@@ -565,22 +692,65 @@ function showOrderPreview() {
                 style="width:100%; background:none; border:none; margin-top:10px; color:#94a3b8; cursor:pointer;">
             Keep Ordering
         </button>`;
+=======
+             <span style="background:var(--primary); color:#fff; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:bold;">CONFIRMING ORDER</span>
+             <h2 style="margin:10px 0 0 0; color:#1e293b;"><?php echo esc_html($current_table->table_name); ?></h2>
+        </div>
+        
+        <div style="max-height: 250px; overflow-y: auto; margin-bottom:15px; border: 1px solid #f1f5f9; padding: 10px; border-radius: 8px;">
+            ${itemsHtml}
+        </div>
+
+        <div style="background:#f8fafc; padding:15px; border-radius:12px; border: 1px solid #e2e8f0;">
+            <div style="display:flex; justify-content:space-between; font-size:14px; color:#475569; margin-bottom:6px;">
+                <span>Subtotal:</span>
+                <span>${sub.toFixed(2)}৳</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:14px; color:#475569; margin-bottom:6px;">
+                <span>VAT (${TAX_RATE}%):</span>
+                <span>${vat.toFixed(2)}৳</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:14px; color:#475569; margin-bottom:10px;">
+                <span>Service Charge (${SC_RATE}%):</span>
+                <span>${sc.toFixed(2)}৳</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:18px; border-top: 2px dashed #cbd5e1; pt:10px; margin-top:5px; color:#1e293b;">
+                <span style="padding-top:10px;">Grand Total:</span>
+                <span style="padding-top:10px; color:var(--primary);">${grand.toFixed(2)}৳</span>
+            </div>
+        </div>
+
+        <button id="finalConfirmBtn" onclick="processFinalOrder(${grand})" style="width:100%; background:#22c55e; color:#fff; border:none; padding:15px; border-radius:12px; font-weight:bold; margin-top:15px; cursor:pointer; font-size:16px; box-shadow: 0 4px 6px -1px rgba(34, 197, 94, 0.2);">
+            CONFIRM ORDER
+        </button>
+        <button onclick="closeM()" style="width:100%; background:none; border:none; margin-top:10px; color:#94a3b8; cursor:pointer; font-weight:500;">Cancel</button>
+    `;
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 
     document.getElementById('vBody').innerHTML = previewHtml;
     document.getElementById('vModal').style.display = 'flex';
 }
 
+<<<<<<< HEAD
 // ৭. ফাইনাল অর্ডার প্রসেস
+=======
+// ৭. ফাইনাল অর্ডার প্রসেস (AJAX)
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 function processFinalOrder(grandTotal) {
     const btn = document.getElementById('finalConfirmBtn');
     btn.disabled = true;
     btn.innerText = 'Processing...';
 
+<<<<<<< HEAD
     let sub     = cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
+=======
+    let sub = cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     let taxable = cart.filter(i => i.tax_free === 0).reduce((sum, i) => sum + (i.price * i.qty), 0);
     let vatVal  = taxable * (TAX_RATE / 100);
     let scVal   = sub * (SC_RATE / 100);
 
+<<<<<<< HEAD
     let processedCart = cart.map(item => ({
         id: item.id,
         name: item.name,
@@ -588,6 +758,17 @@ function processFinalOrder(grandTotal) {
         qty: item.qty,
         variants_selected: item.variants.join(', ')
     }));
+=======
+    let processedCart = cart.map(item => {
+        return {
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            qty: item.qty,
+            variants_selected: item.variants ? item.variants.join(', ') : '' 
+        };
+    });
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 
     jQuery.ajax({
         url: qrrs_vars.ajax_url,
@@ -649,8 +830,16 @@ document.querySelectorAll('.cat-item').forEach(el => {
         });
     };
 });
+<<<<<<< HEAD
 </script>
 
 <?php wp_footer(); ?>
 </body>
 </html>
+=======
+
+// উইন্ডো রিসাইজ হ্যান্ডলার
+window.onresize = function() { render(); };
+
+</script>
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da

@@ -10,12 +10,17 @@ $staff_table = $wpdb->prefix . 'qrrs_staff';
 $res_table = $wpdb->prefix . 'qrrs_restaurants';
 
 /**
+<<<<<<< HEAD
  * 1. Restaurant ID Logic
+=======
+ * 1. Restaurant ID Logic (Admin Session Based)
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
  */
 if ( ! session_id() ) session_start();
 $active_res_id = isset($_SESSION['qrrs_active_res_id']) ? intval($_SESSION['qrrs_active_res_id']) : 0;
 
 if (!$active_res_id && !isset($_GET['action'])) {
+<<<<<<< HEAD
     echo '<div style="padding:50px; text-align:center;"><h3>❌ Please select a restaurant from the dashboard first.</h3></div>';
     return;
 }
@@ -23,17 +28,31 @@ if (!$active_res_id && !isset($_GET['action'])) {
 /**
  * 2. Delete Logic
  */
+=======
+    echo '<div style="padding:50px; text-align:center;"><h3>❌ Please select a restaurant from the dashboard first to manage staff.</h3></div>';
+    return;
+}
+
+// 2. Delete Logic
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 if ( isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']) ) {
     $uid_to_delete = intval($_GET['id']);
     $wpdb->delete($staff_table, ['user_id' => $uid_to_delete]);
     require_once(ABSPATH . 'wp-admin/includes/user.php');
     wp_delete_user( $uid_to_delete );
+<<<<<<< HEAD
     echo "<div class='qrrs-toast success'>Staff member removed successfully!</div>";
 }
 
 /**
  * 3. Edit Mode Detect
  */
+=======
+    echo "<div class='success-msg'>Staff member removed successfully!</div>";
+}
+
+// 3. Edit Mode Detect
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 if ( isset($_GET['action']) && $_GET['action'] == 'edit' && isset($_GET['id']) ) {
     $edit_mode = true;
     $staff_id = intval($_GET['id']);
@@ -49,7 +68,10 @@ if ( isset($_POST['save_staff']) ) {
     $staff_name = sanitize_text_field($_POST['staff_name']);
 
     if ( $edit_mode ) {
+<<<<<<< HEAD
         // --- UPDATE LOGIC ---
+=======
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         wp_update_user([
             'ID'           => $sid,
             'display_name' => $staff_name
@@ -75,18 +97,34 @@ if ( isset($_POST['save_staff']) ) {
             'status'        => $status
         ], ['%d', '%d', '%s', '%s']);
 
+<<<<<<< HEAD
         echo "<div class='qrrs-toast success'>Staff updated successfully!</div>";
         echo "<script>setTimeout(function(){ window.location.href='?tab=add-staff'; }, 2000);</script>";
     } else {
         // --- CREATE LOGIC ---
+=======
+        echo "<div class='success-msg'>Staff updated successfully!</div>";
+    } else {
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         $username = sanitize_user($_POST['staff_user']);
         $password = $_POST['staff_pass'];
 
+<<<<<<< HEAD
         // User exist kore kina check kora
         if ( username_exists( $username ) ) {
             echo "<div class='qrrs-toast error'>Error: Username already exists!</div>";
         } else {
             $new_user_id = wp_create_user($username, $password, $username . '@restaurant.com');
+=======
+        if ( !is_wp_error($new_user_id) ) {
+            wp_update_user(['ID' => $new_user_id, 'display_name' => sanitize_text_field($_POST['staff_name'])]);
+            
+            update_user_meta( $new_user_id, 'staff_photo', esc_url_raw( $_POST['staff_photo'] ) );
+            update_user_meta( $new_user_id, 'staff_nid_front', esc_url_raw( $_POST['nid_front'] ) );
+            update_user_meta( $new_user_id, 'staff_nid_back', esc_url_raw( $_POST['nid_back'] ) );
+            update_user_meta( $new_user_id, 'assigned_restaurant', $restaurant_id );
+            update_user_meta( $new_user_id, 'staff_status', $status );
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 
             if ( !is_wp_error($new_user_id) ) {
                 // Important: User metadata update
@@ -98,6 +136,7 @@ if ( isset($_POST['save_staff']) ) {
                 update_user_meta( $new_user_id, 'assigned_restaurant', $restaurant_id );
                 update_user_meta( $new_user_id, 'staff_status', $status );
 
+<<<<<<< HEAD
                 // Role set kora
                 $user = new WP_User( $new_user_id );
                 $user->set_role( $staff_role );
@@ -119,6 +158,18 @@ if ( isset($_POST['save_staff']) ) {
             } else {
                 echo "<div class='qrrs-toast error'>Error: " . $new_user_id->get_error_message() . "</div>";
             }
+=======
+            $wpdb->insert($staff_table, [
+                'user_id'       => $new_user_id,
+                'restaurant_id' => $restaurant_id,
+                'staff_role'    => $staff_role,
+                'status'        => $status
+            ], ['%d', '%d', '%s', '%s']);
+
+            echo "<div class='success-msg'>Staff created successfully!</div>";
+        } else {
+            echo "<div class='error-msg'>Error: " . $new_user_id->get_error_message() . "</div>";
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         }
     }
 }
@@ -136,6 +187,7 @@ $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $r
         
         <form method="POST" class="qrrs-form">
             <input type="hidden" name="restaurant_id" value="<?php echo $active_res_id; ?>">
+<<<<<<< HEAD
 
             <div class="form-row" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:15px; margin-bottom:15px;">
                 <div class="form-col">
@@ -220,6 +272,92 @@ $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $r
 
     <hr style="margin:20px 0; border:0; border-top:1px solid #eee;">
 
+=======
+
+            <div class="form-row" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:15px; margin-bottom:15px;">
+                <div class="form-col">
+                    <label>Full Name</label>
+                    <input type="text" name="staff_name" required value="<?php echo $edit_mode ? esc_attr($staff_data->display_name) : ''; ?>">
+                </div>
+                <div class="form-col">
+                    <label>Username</label>
+                    <input type="text" name="staff_user" required <?php echo $edit_mode ? 'readonly' : ''; ?> value="<?php echo $edit_mode ? esc_attr($staff_data->user_login) : ''; ?>">
+                </div>
+                <div class="form-col">
+                    <label>Password <?php echo $edit_mode ? '(Blank to keep same)' : ''; ?></label>
+                    <input type="password" name="staff_pass" <?php echo $edit_mode ? '' : 'required'; ?>>
+                </div>
+            </div>
+
+            <div class="form-row" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:15px; margin-bottom:15px;">
+                <div class="form-col">
+                    <label>Role</label>
+                    <?php $current_role = $edit_mode ? $staff_data->roles[0] : ''; ?>
+                    <select name="staff_role">
+                        <option value="qr_manager" <?php selected($current_role, 'qr_manager'); ?>>Manager</option>
+                        <option value="qr_waiter" <?php selected($current_role, 'qr_waiter'); ?>>Waiter</option>
+                        <option value="qr_kitchen" <?php selected($current_role, 'qr_kitchen'); ?>>Kitchen Staff</option>
+                    </select>
+                </div>
+                <div class="form-col">
+                    <label>Status</label>
+                    <?php $status = $edit_mode ? get_user_meta($staff_data->ID, 'staff_status', true) : 'active'; ?>
+                    <select name="staff_status">
+                        <option value="active" <?php selected($status, 'active'); ?>>Active</option>
+                        <option value="inactive" <?php selected($status, 'inactive'); ?>>Inactive</option>
+                    </select>
+                </div>
+                <div class="form-col">
+                    <label>Restaurant</label>
+                    <input type="text" value="<?php echo esc_html($active_res_name); ?>" disabled style="background:#f9f9f9;">
+                </div>
+            </div>
+
+            <div class="form-row" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:15px; margin-bottom:20px;">
+                <div class="form-col">
+                    <label>Staff Photo</label>
+                    <?php $photo = $edit_mode ? get_user_meta($staff_data->ID, 'staff_photo', true) : ''; ?>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <img id="staff_photo_preview" src="<?php echo $photo ? $photo : 'https://via.placeholder.com/50'; ?>" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid #ddd;">
+                        <input type="hidden" name="staff_photo" id="staff_photo_url" value="<?php echo $photo; ?>">
+                        <button type="button" class="upload-media-btn button" data-preview="#staff_photo_preview" data-input="#staff_photo_url"><span class="material-icons-outlined">add_photo_alternate</span> Upload</button>
+                    </div>
+                </div>
+                <div class="form-col">
+                    <label>NID Front</label>
+                    <?php $nid_f = $edit_mode ? get_user_meta($staff_data->ID, 'staff_nid_front', true) : ''; ?>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <input type="hidden" name="nid_front" id="nid_front_url" value="<?php echo $nid_f; ?>">
+                        <button type="button" class="upload-media-btn button" data-input="#nid_front_url"><span class="material-icons-outlined">add_photo_alternate</span> Upload Front</button>
+                        <span id="nid_front_status" style="font-size:11px; color:green;"><?php echo $nid_f ? '✅ Loaded' : ''; ?></span>
+                    </div>
+                </div>
+                <div class="form-col">
+                    <label>NID Back</label>
+                    <?php $nid_b = $edit_mode ? get_user_meta($staff_data->ID, 'staff_nid_back', true) : ''; ?>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <input type="hidden" name="nid_back" id="nid_back_url" value="<?php echo $nid_b; ?>">
+                        <button type="button" class="upload-media-btn button" data-input="#nid_back_url"><span class="material-icons-outlined">add_photo_alternate</span> Upload Back</button>
+                        <span id="nid_back_status" style="font-size:11px; color:green;"><?php echo $nid_b ? '✅ Loaded' : ''; ?></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-footer">
+                <button>
+                    <?php echo $edit_mode ? '<span class="material-icons-outlined">update</span> Update Staff Member' : '<span class="material-icons-outlined">save</span> Save Staff Member'; ?>
+                </button>
+            
+                <?php if($edit_mode): ?>
+                    <a href="?tab=add-staff">Cancel</a>
+                <?php endif; ?>
+            </div>
+        </form>
+    </div>
+
+    <hr style="margin:20px 0; border:0; border-top:1px solid #eee;">
+
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     <div class="qrrs-card">
         <div class="card-header">
             <h3>📋 Staff List (<?php echo esc_html($active_res_name); ?>)</h3>
@@ -260,6 +398,7 @@ $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $r
         </table>
     </div>
 </div>
+<<<<<<< HEAD
 
 
 <script>
@@ -279,6 +418,11 @@ jQuery(document).ready(function($){
     hideToast(); // Call on load
 
     // Media Uploader Logic
+=======
+<script>
+jQuery(document).ready(function($){
+    // WordPress Media Uploader for Staff Photo & NID
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     $('.upload-media-btn').on('click', function(e) {
         e.preventDefault();
         var button = $(this);
@@ -286,14 +430,38 @@ jQuery(document).ready(function($){
         var targetPreview = button.data('preview');
 
         var uploader = wp.media({
+<<<<<<< HEAD
             title: 'Select Media',
+=======
+            title: 'Select or Upload Media',
+            button: { text: 'Use this file' },
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             multiple: false
         }).on('select', function() {
             var attachment = uploader.state().get('selection').first().toJSON();
             $(targetInput).val(attachment.url);
+<<<<<<< HEAD
             if(targetPreview) $(targetPreview).attr('src', attachment.url);
             else button.next('span').text('✅ Uploaded');
         }).open();
     });
 });
 </script>
+=======
+            if(targetPreview) {
+                $(targetPreview).attr('src', attachment.url);
+            } else {
+                button.next('span').text('✅ Uploaded');
+            }
+        }).open();
+    });
+});
+</script>
+
+<style>
+    .qrrs-form label { display:block; font-weight:600; margin-bottom:5px; color:#444; font-size:13px; }
+    .qrrs-form input, .qrrs-form select { width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; font-size:13px; }
+    .success-msg { background:#d4edda; color:#155724; padding:12px; border-radius:5px; margin-bottom:15px; font-weight:600; }
+    .error-msg { background:#f8d7da; color:#721c24; padding:12px; border-radius:5px; margin-bottom:15px; }
+</style>
+>>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
