@@ -5,7 +5,22 @@ global $wpdb;
 $table_db = $wpdb->prefix . 'qrrs_tables';
 $res_db   = $wpdb->prefix . 'qrrs_restaurants';
 
-// [Ager PHP logic gulo (Add/Delete) thik thakbe...]
+/**
+ * 1. Restaurant ID Logic
+ */
+if ( current_user_can('administrator') ) {
+    if ( ! session_id() ) session_start();
+    $active_res_id = isset($_SESSION['qrrs_active_res_id']) ? intval($_SESSION['qrrs_active_res_id']) : 0;
+} else {
+    $active_res_id = get_user_meta(get_current_user_id(), 'assigned_restaurant', true);
+}
+
+if (!$active_res_id) {
+    echo '<div style="padding:50px; text-align:center;"><h3>❌ Please select a restaurant from the dashboard first.</h3></div>';
+    return;
+}
+
+// ২. টেবিল যোগ করার লজিক (Toast Update)
 if ( isset($_POST['add_table']) ) {
     $res_id     = intval($_POST['restaurant_id']);
     $t_name     = sanitize_text_field($_POST['table_name']);
@@ -19,109 +34,208 @@ if ( isset($_POST['add_table']) ) {
         'qr_token'      => $qr_token,
         'status'        => 'available'
     ]);
+    // Toast Success
+    echo "<div class='qrrs-toast success'>Table '$t_name' added successfully!</div>";
 }
 
+// ৩. টেবিল ডিলিট করার লজিক (Toast Update)
 if ( isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']) ) {
-    $wpdb->delete($table_db, ['id' => intval($_GET['id'])]);
+    $wpdb->delete($table_db, [
+        'id'            => intval($_GET['id']),
+        'restaurant_id' => $active_res_id
+    ]);
+    // Toast Delete/Warning
+    echo "<div class='qrrs-toast success'>Table deleted successfully!</div>";
+    
+    // Redirect logic to clean URL after 2 sec
+    echo "<script>setTimeout(function(){ window.location.href='?tab=tables'; }, 2000);</script>";
 }
 
-$current_user_id = get_current_user_id();
-if ( current_user_can('administrator') ) {
-    $restaurants = $wpdb->get_results("SELECT id, restaurant_name FROM $res_db");
-} else {
-    $assigned_res = get_user_meta($current_user_id, 'assigned_restaurant', true);
-    $restaurants = $wpdb->get_results($wpdb->prepare("SELECT id, restaurant_name FROM $res_db WHERE id = %d", $assigned_res));
-}
+$active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $res_db WHERE id = %d", $active_res_id));
 ?>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <div class="qrrs-card">
-    <div class="card-header"><h3>Add New Table</h3></div>
+    <div class="card-header"><h3 style="margin-top:0;"><span class="material-icons-outlined">add</span> Add New Table for <?php echo esc_html($active_res_name); ?></h3></div>
     <form method="POST" class="qrrs-form">
-        <div class="form-row">
-            <div class="form-col">
-                <label>Select Restaurant</label>
-                <select name="restaurant_id" required>
-                    <?php foreach($restaurants as $res): ?>
-                        <option value="<?php echo $res->id; ?>"><?php echo esc_html($res->restaurant_name); ?></option>
-                    <?php endforeach; ?>
-                </select>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+            
+            <div class="form-row">
+                <div class="form-col">
+                    <label style="display:block; font-weight:bold; margin-bottom:5px;">Current Restaurant</label>
+                    <input type="text" value="<?php echo esc_html($active_res_name); ?>" disabled style="width:100%; padding:8px; background:#f5f5f5; border:1px solid #ddd;">
+                    <input type="hidden" name="restaurant_id" value="<?php echo $active_res_id; ?>">
+                </div>
             </div>
-            <div class="form-col">
-                <label>Table Name/Number</label>
-                <input type="text" name="table_name" placeholder="Table 01" required>
+            <div class="form-row">            
+                <div class="form-col">
+                    <label style="display:block; font-weight:bold; margin-bottom:5px;">Table Name/Number</label>
+                    <input type="text" name="table_name" placeholder="e.g. Table 01" required style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                </div>
             </div>
-            <div class="form-col">
-                <label>Capacity</label>
-                <input type="number" name="capacity" value="4">
+            <div class="form-row">
+                <div class="form-col">
+                    <label style="display:block; font-weight:bold; margin-bottom:5px;">Capacity</label>
+                    <input type="number" name="capacity" value="4" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px;">
+                </div>
             </div>
         </div>
-        <button type="submit" name="add_table" class="save-btn">Create & Generate QR</button>
+
+        <div class="form-footer">
+            <button type="submit" name="add_table">Create & Generate QR</button>
+        </div>
     </form>
 </div>
 
-<hr style="margin: 40px 0;">
+<hr style="margin: 20px 0; border:0; border-top:1px solid #eee;">
 
-<div class="qrrs-card">
-    <div class="card-header"><h3>Manage Tables</h3></div>
-    <table class="qrrs-table">
+<div class="qrrs-card-table">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <h3><span class="material-icons-outlined">manage_history</span> Manage Tables (<?php echo esc_html($active_res_name); ?>)</h3>
+        <button id="print-all-qr" class="save-btn" style="background:#059669; color:#fff; border:none; padding:8px 15px; border-radius:4px; cursor:pointer;">
+            🖨️ Print All QR Codes
+        </button>
+    </div>
+    <table class="qrrs-table" style="float:left;width:100%; border-collapse: collapse; margin:15px 0 0 0;">
         <thead>
-            <tr>
-                <th>Table Name</th>
-                <th>Restaurant</th>
-                <th>Capacity</th>
-                <th>QR Code</th>
-                <th>Action</th>
+            <tr style="background:#f8f9fa; border-bottom:2px solid #eee;">
+                <th style="padding:12px; text-align:left;">Table Name</th>
+                <th style="padding:12px; text-align:left;">Capacity</th>
+                <th style="padding:12px; text-align:left;">QR Code</th>
+                <th style="padding:12px; text-align:left;">QR Token</th>
+                <th style="padding:12px; text-align:left;">Action</th>
             </tr>
         </thead>
         <tbody>
             <?php 
-            $query = current_user_can('administrator') 
-                     ? "SELECT t.*, r.restaurant_name as res_name FROM $table_db t JOIN $res_db r ON t.restaurant_id = r.id ORDER BY t.id DESC"
-                     : $wpdb->prepare("SELECT t.*, r.restaurant_name as res_name FROM $table_db t JOIN $res_db r ON t.restaurant_id = r.id WHERE t.restaurant_id = %d ORDER BY t.id DESC", $assigned_res);
-            
-            $tables = $wpdb->get_results($query);
+            // শুধুমাত্র বর্তমান রেস্টুরেন্টের টেবিলগুলো ফেচ করা হচ্ছে
+            $tables = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM $table_db WHERE restaurant_id = %d ORDER BY id DESC",
+                $active_res_id
+            ));
 
             if($tables):
                 foreach($tables as $row):
                     $qr_link = home_url('/menu/?token=' . $row->qr_token);
             ?>
-            <tr>
-                <td><strong><?php echo esc_html($row->table_name); ?></strong></td>
-                <td><?php echo esc_html($row->res_name); ?></td>
-                <td><?php echo $row->capacity; ?> P</td>
-                <td>
+            <tr style="border-bottom:1px solid #eee;">
+                <td style="padding:12px;"><strong><?php echo esc_html($row->table_name); ?></strong></td>
+                <td style="padding:12px;"><?php echo $row->capacity; ?> Persons</td>
+                <td style="padding:12px;">
                     <button class="print-qr-btn" 
                             data-link="<?php echo esc_url($qr_link); ?>" 
                             data-table="<?php echo esc_attr($row->table_name); ?>"
-                            data-res="<?php echo esc_attr($row->res_name); ?>">
+                            data-res="<?php echo esc_attr($active_res_name); ?>">
                         🖨️ Print QR
                     </button>
                 </td>
-                <td>
-                    <a href="?tab=tables&action=delete&id=<?php echo $row->id; ?>" class="delete-link" onclick="return confirm('Delete?')">Delete</a>
+                <td style="padding:12px;">
+                <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; color: #475569; font-size: 12px;">
+                    <?php echo esc_html($row->qr_token); ?>
+                </code>
+            </td>
+                <td style="padding:12px;">
+                    <a href="?tab=tables&action=delete&id=<?php echo $row->id; ?>" class="delete-link" onclick="return confirm('Delete this table?')">Delete</a>
                 </td>
             </tr>
-            <?php endforeach; endif; ?>
+            <?php endforeach; else: ?>
+                <tr><td colspan="4" style="text-align:center; padding:20px;">No tables created yet.</td></tr>
+            <?php endif; ?>
         </tbody>
     </table>
 </div>
+
+<div id="print-all-container" style="display:none;"></div>
 
 <div id="qrModal" class="qr-modal">
     <div class="qr-modal-content">
         <span class="close-modal">&times;</span>
         <div id="printable-qr-area" style="text-align: center; padding: 20px;">
-            <h2 id="modal-res-name" style="margin-bottom: 5px;"></h2>
-            <h3 id="modal-table-name" style="margin-top: 0; color: #555;"></h3>
+            <h2 id="modal-res-name" style="margin-bottom: 5px; font-family: sans-serif;"></h2>
+            <h3 id="modal-table-name" style="margin-top: 0; color: #555; font-family: sans-serif;"></h3>
             <div id="qrcode" style="display: flex; justify-content: center; margin: 20px 0;"></div>
             <p style="font-size: 14px; color: #888;">Scan to View Menu & Order</p>
         </div>
-        <button onclick="printQR()" class="save-btn" style="width: 100%;">Print Now</button>
+        <button onclick="printQR()" class="save-btn" style="width: 100%; background:#2271b1; color:#fff; border:none; padding:12px; border-radius:5px; cursor:pointer; font-weight:bold;">Print Now</button>
     </div>
 </div>
 
 <script>
+    jQuery(document).ready(function($){
+    
+    
+    function handleToast() {
+            if ($('.qrrs-toast').length > 0) {
+                setTimeout(function() {
+                    $('.qrrs-toast').addClass('toast-fade-out');
+                    setTimeout(function() {
+                        $('.qrrs-toast').remove();
+                    }, 500);
+                }, 3000);
+            }
+        }
+        handleToast();
+
+
+
+    $('#print-all-qr').on('click', function(){
+        var printContainer = $('#print-all-container');
+        printContainer.empty(); // আগের ডাটা পরিষ্কার করা
+        
+        // সব টেবিল রো থেকে ডাটা সংগ্রহ করা
+        var tables = [];
+        $('.print-qr-btn').each(function(){
+            tables.push({
+                link: $(this).data('link'),
+                table: $(this).data('table'),
+                res: $(this).data('res')
+            });
+        });
+
+        if(tables.length === 0) {
+            alert('No tables found to print!');
+            return;
+        }
+
+        // প্রিন্ট উইন্ডো সেটআপ
+        var printWindow = window.open('', '_blank');
+        printWindow.document.write('<html><head><title>Print All QR</title>');
+        printWindow.document.write('<style>@media print { .qr-item { page-break-inside: avoid; margin-bottom: 50px; text-align: center; font-family: sans-serif; float: left; width: 33.33%; padding: 20px; box-sizing: border-box; } img { max-width: 100%; height: auto; display: block; margin: 10px auto; } }</style>');
+        printWindow.document.write('</head><body>');
+        printWindow.document.write('<div id="all-qr-wrapper"></div>');
+        printWindow.document.write('</body></html>');
+
+        var wrapper = printWindow.document.getElementById('all-qr-wrapper');
+
+        // লুপ চালিয়ে কিউআর জেনারেট করা
+        tables.forEach(function(item, index) {
+            var itemDiv = printWindow.document.createElement('div');
+            itemDiv.className = 'qr-item';
+            itemDiv.innerHTML = `
+                <h2 style="font-size:16px; margin:0;">${item.res}</h2>
+                <h3 style="font-size:20px; margin:5px 0;">${item.table}</h3>
+                <div id="qr-all-${index}"></div>
+                <p style="font-size:12px; color:#666;">Scan to Order</p>
+            `;
+            wrapper.appendChild(itemDiv);
+
+            // কিউআর কোড লাইব্রেরি ব্যবহার করে জেনারেট
+            new QRCode(printWindow.document.getElementById('qr-all-' + index), {
+                text: item.link,
+                width: 250,
+                height: 250
+            });
+        });
+
+        // কিউআর কোড ইমেজ লোড হওয়ার জন্য সামান্য বিরতি দিয়ে প্রিন্ট
+        setTimeout(function(){
+            printWindow.print();
+            printWindow.close();
+        }, 1000);
+    });
+});
+
 jQuery(document).ready(function($){
     var qrcode = new QRCode(document.getElementById("qrcode"), {
         width: 250,
@@ -151,23 +265,7 @@ function printQR() {
     document.body.innerHTML = printContents;
     window.print();
     document.body.innerHTML = originalContents;
-    window.location.reload(); // Re-bind JS events
+    window.location.reload(); 
 }
 </script>
 
-<style>
-    .print-qr-btn { background: #edf2f7; border: 1px solid #cbd5e0; padding: 5px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; }
-    .print-qr-btn:hover { background: #e2e8f0; }
-    .delete-link { color: #e53e3e; font-size: 12px; text-decoration: none; }
-    
-    /* Modal Style */
-    .qr-modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-    .qr-modal-content { background: #fff; margin: 10% auto; padding: 20px; width: 350px; border-radius: 10px; position: relative; }
-    .close-modal { position: absolute; right: 15px; top: 10px; font-size: 24px; cursor: pointer; }
-    
-    @media print {
-        body * { visibility: hidden; }
-        #printable-qr-area, #printable-qr-area * { visibility: visible; }
-        #printable-qr-area { position: absolute; left: 0; top: 0; width: 100%; }
-    }
-</style>

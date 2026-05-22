@@ -4,117 +4,83 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 global $wpdb;
 $current_user_id = get_current_user_id();
 
-// ১. Restaurant ID & Staff Logic
-$staff_info = $wpdb->get_row($wpdb->prepare(
-    "SELECT restaurant_id FROM {$wpdb->prefix}qrrs_staff WHERE user_id = %d AND status = 'active'",
-    $current_user_id
-));
-$restaurant_id = $staff_info ? $staff_info->restaurant_id : get_user_meta($current_user_id, 'assigned_restaurant', true);
+/**
+ * FIXED: Restaurant ID Logic (Admin Session + Staff Logic)
+ */
+if ( current_user_can('administrator') ) {
+    if ( ! session_id() ) session_start();
+    $restaurant_id = isset($_SESSION['qrrs_active_res_id']) 
+        ? intval($_SESSION['qrrs_active_res_id']) : 0;
+} else {
+    $staff_info = $wpdb->get_row($wpdb->prepare(
+        "SELECT restaurant_id FROM {$wpdb->prefix}qrrs_staff WHERE user_id = %d AND status = 'active'",
+        $current_user_id
+    ));
+    $restaurant_id = $staff_info ? $staff_info->restaurant_id : intval( get_user_meta( $current_user_id, 'assigned_restaurant', true ) );
+}
 
 if (!$restaurant_id) {
-    echo '<div style="padding:50px; text-align:center;"><h3>No restaurant assigned to your account.</h3></div>';
+    echo '<div style="padding:50px; text-align:center;"><h3>Please select a restaurant from the dashboard first.</h3></div>';
     return;
 }
 
-// ২. Data Fetching
+// ২. Data Fetching (Bakita ager motoi thakbe)
 $res_info = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qrrs_restaurants WHERE id = %d", $restaurant_id));
 $db_tax = $res_info->tax_percent ?? 0;
 $db_sc  = $res_info->service_charge_percent ?? 0;
 
-$tables = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qrrs_tables WHERE restaurant_id = %d ORDER BY id ASC", $restaurant_id));
+// ১. ফ্লোর প্ল্যান এবং টেবিল স্ট্যাটাস কুয়েরি (ইউজার ও স্ট্যাটাস সহ)
+$tables = $wpdb->get_results($wpdb->prepare("
+    SELECT t.*, 
+        o.order_status, 
+        o.id AS active_order_id,
+        o.waiter_id,
+        u.display_name as waiter_name
+    FROM {$wpdb->prefix}qrrs_tables t
+    LEFT JOIN {$wpdb->prefix}qrrs_orders o ON t.table_name = o.table_name 
+        AND o.restaurant_id = %d 
+        AND o.order_status NOT IN ('completed','cancelled','billing')
+        AND DATE(o.created_at) = CURDATE()
+    LEFT JOIN {$wpdb->prefix}users u ON o.waiter_id = u.ID
+    WHERE t.restaurant_id = %d
+    GROUP BY t.table_name
+    ORDER BY CAST(SUBSTRING_INDEX(t.table_name,' ',-1) AS UNSIGNED) ASC, t.table_name ASC
+", $restaurant_id, $restaurant_id));
+
 $categories = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qrrs_categories WHERE restaurant_id = %d ORDER BY id ASC", $restaurant_id));
 $items = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qrrs_items WHERE restaurant_id = %d", $restaurant_id));
+
+// Occupied tables: today's active orders (not completed/cancelled)
+$today_start = current_time('Y-m-d 00:00:00');
+$today_end   = current_time('Y-m-d 23:59:59');
+
+$occupied_tables_data = $wpdb->get_results($wpdb->prepare("
+    SELECT 
+        o.table_name,
+        o.created_at,
+        o.grand_total,
+        COUNT(oi.id) as item_count,
+        u.display_name as taken_by
+    FROM {$wpdb->prefix}qrrs_orders o
+    LEFT JOIN {$wpdb->prefix}users u ON o.waiter_id = u.ID
+    LEFT JOIN {$wpdb->prefix}qrrs_order_items oi ON o.id = oi.order_id
+    WHERE o.restaurant_id = %d 
+    AND o.order_status NOT IN ('completed', 'cancelled')
+    AND o.created_at BETWEEN %s AND %s
+    GROUP BY o.table_name
+", $restaurant_id, $today_start, $today_end));
+
+$occupied_map = [];
+foreach($occupied_tables_data as $ot) {
+    $occupied_map[$ot->table_name] = $ot;
+}
+$occupied_table_names = array_keys($occupied_map);
+
+$plugin_url = plugin_dir_url(dirname(dirname(__FILE__)));
+
 ?>
 
-<style>
-    :root { 
-        --primary: #f97316; 
-        --primary-dark: #ea580c;
-        --bg: #f1f5f9; 
-        --white: #ffffff; 
-        --text-main: #1e293b;
-        --text-muted: #64748b;
-        --radius: 12px;
-    }
-    
-    .pos-wrapper { 
-        display: flex; 
-        height: 90vh; 
-        background: var(--bg); 
-        position: relative; 
-        border-radius: var(--radius); 
-        overflow: hidden; 
-        font-family: 'Inter', sans-serif;
-        border: 1px solid #e2e8f0;
-    }
-    
-    /* Sidebar Left */
-    .sidebar-left { width: 100px; background: #fff; border-right: 1px solid #e2e8f0; overflow-y: auto; flex-shrink: 0; }
-    .cat-item { padding: 15px 5px; cursor: pointer; text-align: center; border-bottom: 1px solid #f8fafc; transition: 0.2s; }
-    .cat-item.active { background: #fff7ed; border-left: 4px solid var(--primary); }
-    .cat-icon { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; margin-bottom: 5px; background: #f1f5f9; }
-    .cat-item h4 { font-size: 11px; margin: 0; color: var(--text-main); text-transform: uppercase; }
 
-    /* Main Content */
-    .main-content { flex: 1; overflow-y: auto; padding: 20px; }
-    .item-grid { display: grid; gap: 15px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
-    
-    .item-card { 
-        background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; 
-        overflow: hidden; position: relative; cursor: pointer; transition: 0.2s; 
-    }
-    .item-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    .item-card.selected { border-color: var(--primary); background: #fffaf5; box-shadow: 0 0 0 2px var(--primary); }
-    
-    .item-img { width: 100%; height: 110px; object-fit: cover; }
-    
-    /* Badge Fix: শুরুতে হাইড থাকবে */
-    .item-qty-badge { 
-        position: absolute; top: 8px; right: 8px; 
-        background: var(--primary); color: #fff; 
-        min-width: 22px; height: 22px; padding: 2px;
-        border-radius: 50%; display: none; /* JS will handle showing this */
-        align-items: center; justify-content: center; 
-        font-size: 12px; font-weight: bold; border: 2px solid #fff; z-index: 10;
-    }
-
-    /* Right Sidebar - Cart */
-    .sidebar-right { width: 350px; background: #fff; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; }
-    .cart-item-row { padding: 12px; border-bottom: 1px solid #f1f5f9; transition: 0.2s; }
-    .qty-btn { border: 1px solid #e2e8f0; background: #fff; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-    .qty-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
-
-    /* Modal / Popup Fix */
-    .v-modal { 
-        position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); 
-        display: none; /* JS toggles this */
-        align-items: center; justify-content: center; 
-        z-index: 99999; backdrop-filter: blur(4px); 
-    }
-    .v-modal-content { 
-        background: #fff; width: 90%; max-width: 400px; 
-        border-radius: 20px; padding: 25px; 
-        box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2);
-    }
-
-    /* Buttons */
-    .btn-place-order { 
-        width: 100%; background: var(--primary); color: #fff; border: none; 
-        padding: 16px; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 16px;
-        transition: 0.2s;
-    }
-    .btn-place-order:hover { background: var(--primary-dark); }
-
-    /* Overlay */
-    .pos-overlay { position: absolute; inset: 0; background: #fff; z-index: 1000; display: flex; align-items: center; justify-content: center; }
-    .selection-card { background: #fff; border: 1px solid #e2e8f0; width: 450px; padding: 40px; border-radius: 24px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
-    
-    .type-box { 
-        border: 2px solid #f1f5f9; border-radius: 16px; padding: 20px; 
-        cursor: pointer; transition: 0.2s; font-weight: bold; 
-    }
-    .type-box:hover { border-color: var(--primary); color: var(--primary); background: #fff7ed; }
-</style>
 
 <div class="pos-wrapper">
     <div id="pos-overlay" class="pos-overlay">
@@ -126,13 +92,80 @@ $items = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qrrs_it
             </div>
         </div>
         <div id="step-table" class="selection-card" style="display:none;">
-            <h3>Select Table</h3>
-            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:20px; max-height:300px; overflow-y:auto; padding:10px;">
-                <?php foreach($tables as $t): ?>
-                    <div class="cat-item" style="border:1px solid #eee; border-radius:10px; padding:10px;" onclick="selectTable(<?php echo $t->id; ?>, '<?php echo esc_js($t->table_name); ?>')"><?php echo $t->table_name; ?></div>
+            <div class="table-modal-header">
+                <h3>🪑 Select Table</h3>
+                <div class="table-legend">
+                    <div class="legend-dot"><span style="background:#22c55e;"></span> Free</div>
+                    <div class="legend-dot"><span style="background:#f97316;"></span> Occupied</div>
+                </div>
+            </div>
+
+            <div class="table-grid-container">
+                <?php 
+                $free_count = 0;
+                $occupied_count = 0;
+                foreach($tables as $t): 
+                    $is_occupied = in_array($t->table_name, $occupied_table_names);
+                    $capacity = !empty($t->capacity) ? intval($t->capacity) : 4;
+                    
+                    if($is_occupied) {
+                        $occupied_count++;
+                        $odata = $occupied_map[$t->table_name] ?? null;
+                        $taken_by = $odata ? ($odata->taken_by ?: 'Staff') : 'Customer';
+                        $item_count = $odata ? intval($odata->item_count) : 0;
+                        $time_ago = $odata ? human_time_diff(strtotime($odata->created_at), current_time('timestamp')) . ' ago' : '';
+                        $grand_total = $odata ? number_format($odata->grand_total, 0) : '0';
+                        $onclick = "showOccupiedAlert('" . esc_js($t->table_name) . "', '" . esc_js($taken_by) . "', '{$item_count}', '{$time_ago}')";
+                    } else {
+                        $free_count++;
+                        $onclick = "selectTable({$t->id}, '" . esc_js($t->table_name) . "')";
+                    }
+
+                    // Capacity chairs icons
+                    $chair_icons = '';
+                    for($i = 0; $i < min($capacity, 6); $i++) $chair_icons .= '🪑';
+                ?>
+                <div class="tbl-card <?php echo $is_occupied ? 'occupied' : 'free'; ?>" 
+                    onclick="<?php echo $onclick; ?>">
+                    
+                    <?php if($is_occupied): ?>
+                    <div class="tbl-tooltip">
+                        👤 <?php echo esc_html($taken_by); ?> · <?php echo $item_count; ?> items · <?php echo $time_ago; ?>
+                    </div>
+                    <?php endif; ?>
+
+                    <span class="tbl-icon">
+                        <img src="<?php echo $is_occupied 
+                            ? esc_url($plugin_url . 'assets/images/table-occupied.png')
+                            : esc_url($plugin_url . 'assets/images/table-free.png'); ?>" 
+                            style="width:auto; height:45px; object-fit:contain;">
+                    </span>
+                    <div class="tbl-name"><?php echo esc_html($t->table_name); ?></div>
+                    <div class="tbl-capacity">👥 <?php echo $capacity; ?> seats</div>
+                    <div class="tbl-status-pill">
+                        <?php echo $is_occupied ? '● Occupied' : '● Free'; ?>
+                    </div>
+                    <?php if($is_occupied): ?>
+                    <div class="tbl-waiter-info">
+                        <!-- <div class="tbl-waiter-avatar"><?php echo strtoupper(substr($taken_by, 0, 1)); ?></div> -->
+                        <div class="tbl-waiter-name"> <?php echo esc_html($taken_by); ?></div>
+                    </div>
+                    <div class="tbl-order-meta"><?php echo $item_count; ?> items · <?php echo $time_ago; ?></div>
+                    <?php endif; ?>
+                </div>
                 <?php endforeach; ?>
             </div>
-            <button onclick="jQuery('#step-table').hide(); jQuery('#step-type').show();" style="margin-top:15px; background:none; border:none; color:#666; cursor:pointer;">← Back</button>
+
+            <div class="table-modal-footer">
+                <div class="table-stats-text">
+                    <strong><?php echo $free_count; ?></strong> free · 
+                    <strong><?php echo $occupied_count; ?></strong> occupied
+                </div>
+                <button onclick="jQuery('#step-table').hide(); jQuery('#step-type').show();" 
+                        style="background:none; border:1px solid #e2e8f0; padding:8px 16px; border-radius:8px; color:#64748b; cursor:pointer; font-size:13px; font-weight:600;">
+                    ← Back
+                </button>
+            </div>
         </div>
     </div>
 
@@ -194,6 +227,37 @@ $items = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qrrs_it
 <div id="vModal" class="v-modal">
     <div class="v-modal-content" id="vBody"></div>
 </div>
+
+
+<div id="successPopup" class="v-modal" style="display:none; z-index: 9999;">
+    <div class="v-modal-content" style="text-align:center; padding: 30px; border-radius: 15px; max-width: 350px;">
+        <div class="success-icon" style="margin-bottom: 15px;">
+            <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+        </div>
+        <h2 style="margin: 0 0 10px 0; color: #1e293b; font-size: 20px;">Order Placed</h2>
+        <p style="color: #64748b; font-size: 14px; margin: 0;">The order has been recorded successfully.</p>
+        
+        <div style="margin-top: 20px; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; pt: 15px;">
+            Refreshing in <span id="timer" style="font-weight: bold; color: #1e293b;">3</span>s...
+        </div>
+    </div>
+</div>
+
+<style>
+#successPopup {
+    background: rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(2px);
+}
+.success-icon {
+    animation: popIn 0.4s ease-out;
+}
+@keyframes popIn {
+    0% { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+</style>
 
 <script>
 const TAX_RATE = <?php echo floatval($db_tax); ?>;
@@ -357,7 +421,6 @@ function placeOrder(grandTotal) {
         orderBtn.innerText = 'Placing...';
     }
 
-    // ক্যালকুলেশনগুলো পুনরায় নিশ্চিত করা
     let sub = cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
     let taxable = cart.filter(i => i.tax_free === 0).reduce((sum, i) => sum + (i.price * i.qty), 0);
     let vatVal = taxable * (TAX_RATE / 100);
@@ -379,7 +442,7 @@ function placeOrder(grandTotal) {
         data: {
             action: 'place_qr_order',
             restaurant_id: <?php echo $restaurant_id; ?>,
-            table_id: orderMeta.table_id, // এটি PHP-তে শুধু নাম খোঁজার জন্য ব্যবহৃত হবে
+            table_id: orderMeta.table_id,
             order_type: orderMeta.type,
             items: JSON.stringify(processedCart),
             subtotal: sub,
@@ -390,18 +453,28 @@ function placeOrder(grandTotal) {
         },
         success: function(res) {
             if(res.success) { 
-                alert('Order placed successfully!');
-                location.reload(); 
+                // ১. সাকসেস পপআপ দেখানো
+                document.getElementById('successPopup').style.display = 'flex';
+                
+                // ২. টাইমার এবং রিলোড লজিক
+                let timeLeft = 3;
+                let timerElement = document.getElementById('timer');
+                let countdown = setInterval(function() {
+                    timeLeft--;
+                    timerElement.innerText = timeLeft;
+                    if(timeLeft <= 0) {
+                        clearInterval(countdown);
+                        location.reload(); // পেজ রিলোড হবে
+                    }
+                }, 1000);
+
             } else { 
-                // সার্ভার সাইড থেকে আসা নির্দিষ্ট এরর মেসেজ দেখাবে
                 alert('Order Failed: ' + res.data); 
                 resetOrderBtn(orderBtn);
             }
         },
         error: function(xhr) {
-            // যদি সার্ভার থেকে কোনো রেসপন্সই না আসে (যেমন ৫০০০ এরর)
-            console.log(xhr.responseText);
-            alert('Server Error: Check console for details.');
+            alert('Server Error. Please try again.');
             resetOrderBtn(orderBtn);
         }
     });
@@ -412,6 +485,35 @@ function resetOrderBtn(btn) {
         btn.disabled = false;
         btn.innerText = 'PLACE ORDER';
     }
+}
+
+
+function showOccupiedAlert(tableName, takenBy, itemCount, timeAgo) {
+    document.getElementById('vBody').innerHTML = `
+        <div style="text-align:center; padding:10px 0;">
+            <div style="font-size:48px; margin-bottom:12px;">🔒</div>
+            <h3 style="margin:0 0 8px; color:#1e293b;">${tableName} is Occupied</h3>
+            <p style="color:#64748b; margin:0 0 20px; font-size:14px;">This table currently has an active order</p>
+            <div style="background:#f8fafc; border-radius:12px; padding:16px; text-align:left; border:1px solid #e2e8f0;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <span style="color:#64748b; font-size:13px;">👤 Taken by</span>
+                    <span style="font-weight:700; font-size:13px; color:#1e293b;">${takenBy}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                    <span style="color:#64748b; font-size:13px;">🛒 Items</span>
+                    <span style="font-weight:700; font-size:13px; color:#1e293b;">${itemCount} items</span>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span style="color:#64748b; font-size:13px;">🕐 Order Time</span>
+                    <span style="font-weight:700; font-size:13px; color:#1e293b;">${timeAgo}</span>
+                </div>
+            </div>
+            <button onclick="closeM()" class="btn-place-order" 
+                    style="margin-top:20px; background:#1e293b;">
+                Got it
+            </button>
+        </div>`;
+    document.getElementById('vModal').style.display = 'flex';
 }
 
 function closeM() { document.getElementById('vModal').style.display = 'none'; }

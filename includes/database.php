@@ -8,18 +8,20 @@ class QRRS_Database {
         $charset_collate = $wpdb->get_charset_collate();
         require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
 
+        // Table Prefix
         $prefix = $wpdb->prefix . 'qrrs_';
 
         /**
-         * 1. Restaurants Table
-         * Protiti restaurant-er settings ekhane thakbe.
+         * 1. Restaurants Table (Updated with your fields)
          */
         $sql_restaurants = "CREATE TABLE {$prefix}restaurants (
             id bigint(20) NOT NULL AUTO_INCREMENT,
             owner_id bigint(20) NOT NULL,
             restaurant_name varchar(255) NOT NULL,
             restaurant_logo varchar(255),
-            address text, -- Missing field added
+            phone varchar(20),
+            bin_number varchar(100), -- Business Identification Number
+            address text,
             currency_symbol varchar(10) DEFAULT '$',
             tax_percent decimal(5,2) DEFAULT 0.00,
             service_charge_percent decimal(5,2) DEFAULT 0.00,
@@ -31,7 +33,23 @@ class QRRS_Database {
         ) $charset_collate;";
 
         /**
-         * 2. Tables (Dining Tables)
+         * 2. Staff Table
+         */
+        $sql_staff = "CREATE TABLE {$prefix}staff (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            user_id bigint(20) NOT NULL,
+            restaurant_id bigint(20) NOT NULL,
+            staff_role varchar(50) NOT NULL,
+            assigned_by bigint(20) NOT NULL,
+            status varchar(20) DEFAULT 'active',
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY user_id (user_id),
+            KEY restaurant_id (restaurant_id)
+        ) $charset_collate;";
+
+        /**
+         * 3. Tables (Dining Tables)
          */
         $sql_tables = "CREATE TABLE {$prefix}tables (
             id bigint(20) NOT NULL AUTO_INCREMENT,
@@ -40,22 +58,25 @@ class QRRS_Database {
             capacity int(11) DEFAULT 0,
             qr_token varchar(100),
             status varchar(20) DEFAULT 'available',
-            PRIMARY KEY (id)
+            PRIMARY KEY (id),
+            KEY restaurant_id (restaurant_id)
         ) $charset_collate;";
 
         /**
-         * 3. Categories
+         * 4. Categories
          */
         $sql_categories = "CREATE TABLE {$prefix}categories (
             id bigint(20) NOT NULL AUTO_INCREMENT,
             restaurant_id bigint(20) NOT NULL,
-            Category_name varchar(255) NOT NULL,
+            category_name varchar(255) NOT NULL,
             slug varchar(255) NOT NULL,
-            PRIMARY KEY (id)
+            image varchar(255) DEFAULT NULL,
+            PRIMARY KEY (id),
+            KEY restaurant_id (restaurant_id)
         ) $charset_collate;";
 
         /**
-         * 4. Menu Items
+         * 5. Menu Items
          */
         $sql_items = "CREATE TABLE {$prefix}items (
             id bigint(20) NOT NULL AUTO_INCREMENT,
@@ -69,76 +90,79 @@ class QRRS_Database {
             prep_time varchar(50),
             price decimal(10,2) NOT NULL,
             is_available tinyint(1) DEFAULT 1,
-            PRIMARY KEY (id)
+            is_tax_free tinyint(1) NOT NULL DEFAULT '0',
+            PRIMARY KEY (id),
+            KEY category_id (category_id)
         ) $charset_collate;";
 
         /**
-         * 5. Orders (Main Header)
+         * 6. Orders
          */
         $sql_orders = "CREATE TABLE {$prefix}orders (
             id bigint(20) NOT NULL AUTO_INCREMENT,
             restaurant_id bigint(20) NOT NULL,
-            table_name bigint(20) NOT NULL,
+            table_name varchar(100) NOT NULL,   
+            table_id bigint(20) NOT NULL,
             waiter_id bigint(20),
+            order_type varchar(20) DEFAULT 'dine_in',
             total_amount decimal(10,2) DEFAULT 0.00,
             tax_amount decimal(10,2) DEFAULT 0.00,
             service_charge decimal(10,2) DEFAULT 0.00,
             grand_total decimal(10,2) DEFAULT 0.00,
+            discount_amount decimal(10,2) DEFAULT 0.00,  
+            final_total decimal(10,2) DEFAULT 0.00,       
+            payment_method varchar(50) DEFAULT 'cash',    
+            amount_received decimal(10,2) DEFAULT 0.00,  
+            cash_returned decimal(10,2) DEFAULT 0.00,    
             order_status varchar(20) DEFAULT 'pending',
+            ready_at datetime DEFAULT NULL,              
             payment_status varchar(20) DEFAULT 'unpaid',
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id)
+            PRIMARY KEY (id),
+            KEY restaurant_id (restaurant_id)
         ) $charset_collate;";
 
         /**
-         * 6. Order Items (Details)
+         * 7. Order Items
          */
         $sql_order_items = "CREATE TABLE {$prefix}order_items (
             id bigint(20) NOT NULL AUTO_INCREMENT,
             order_id bigint(20) NOT NULL,
-            item_name bigint(20) NOT NULL,
+            item_id bigint(20) NOT NULL,
+            restaurant_id int(11) NOT NULL,       
+            item_name varchar(100) NOT NULL,      
             quantity int(11) NOT NULL,
             price decimal(10,2) NOT NULL,
             variants_selected text,
             item_status varchar(20) DEFAULT 'pending',
-            PRIMARY KEY (id)
+            item_type varchar(20) DEFAULT 'original', 
+            PRIMARY KEY (id),
+            KEY order_id (order_id)
         ) $charset_collate;";
 
-        
-        $table_staff = $wpdb->prefix . 'qrrs_staff';
-        $sql_staff = "CREATE TABLE $table_staff (
+        /**
+         * 8. Kitchen Sessions
+         */
+        $sql_kitchen_sessions = "CREATE TABLE {$prefix}kitchen_sessions (
             id bigint(20) NOT NULL AUTO_INCREMENT,
-            user_id bigint(20) NOT NULL,
             restaurant_id bigint(20) NOT NULL,
-            staff_role varchar(50) NOT NULL, -- manager, waiter, kitchen
-            assigned_by bigint(20) NOT NULL, -- ke ei staff-ke add korlo
-            status varchar(20) DEFAULT 'active',
-            created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY  (id),
-            KEY user_id (user_id),
+            opened_by bigint(20),
+            closed_by bigint(20) DEFAULT NULL,
+            opened_at datetime NOT NULL,
+            closed_at datetime DEFAULT NULL,
+            status varchar(20) DEFAULT 'open',
+            PRIMARY KEY (id),
             KEY restaurant_id (restaurant_id)
         ) $charset_collate;";
 
-
-
-
-$wpdb->query("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}qrrs_kitchen_sessions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    restaurant_id INT NOT NULL,
-    opened_by INT,
-    closed_by INT NULL,
-    opened_at DATETIME NOT NULL,
-    closed_at DATETIME NULL,
-    status VARCHAR(20) DEFAULT 'open'
-)");
-
-        // Execute queries
+        // Execute all queries
         dbDelta( $sql_restaurants );
+        dbDelta( $sql_staff );
         dbDelta( $sql_tables );
         dbDelta( $sql_categories );
         dbDelta( $sql_items );
         dbDelta( $sql_orders );
         dbDelta( $sql_order_items );
-        dbDelta( $sql_staff );
+        dbDelta( $sql_kitchen_sessions );
     }
 }

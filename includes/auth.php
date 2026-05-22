@@ -88,9 +88,15 @@ class QRRS_Auth {
     }
 
     /**
-     * Strict Permission Check (Templates e call korar jonno)
+     * Strict Permission Check (Fixed: Auto Redirect instead of wp_die)
      */
     public static function has_permission( $required_role ) {
+        // ১. প্রিন্ট ভিউ বা পিডিএফ ডাউনলোড অ্যাকশন রিকোয়েস্ট হলে ডাইরেক্ট পাস করিয়ে দেবো
+        if ( isset($_GET['action']) && ($_GET['action'] === 'print' || isset($_GET['pdf'])) ) {
+            return true;
+        }
+
+        // ২. লগইন না থাকলে সোজা লগইন পেজে
         if ( ! is_user_logged_in() ) {
             wp_redirect( home_url( '/restaurant-login/' ) );
             exit;
@@ -99,19 +105,45 @@ class QRRS_Auth {
         $user = wp_get_current_user();
         $user_roles = (array) $user->roles;
 
-        if ( in_array( 'administrator', $user_roles ) || in_array( $required_role, $user_roles ) ) {
+        // এডমিন হলে সব পেজেই এক্সেস পাবে
+        if ( in_array( 'administrator', $user_roles ) ) {
             return true;
         }
 
-        wp_die( __( 'Apnar ei section-e dhokar onumoti nei.', 'qr-restaurant-system' ) );
+        // ৩. কন্ডিশন চেক: ইউজারের কি এই পেজ দেখার পারমিশন আছে?
+        $roles_to_check = is_array($required_role) ? $required_role : array($required_role);
+        $has_access = false;
+        foreach ( $roles_to_check as $role ) {
+            if ( in_array( $role, $user_roles ) ) {
+                $has_access = true;
+                break;
+            }
+        }
+
+        // যদি এক্সেস থাকে, তাহলে পেজ লোড হতে দাও
+        if ( $has_access ) {
+            return true;
+        }
+
+        // ৪. পারমিশন না থাকলে কুৎসিত সাদা স্ক্রিন না দেখিয়ে যার যার ড্যাশবোর্ডে রিডাইরেক্ট করুন
+        if ( in_array( 'qr_waiter', $user_roles ) ) {
+            wp_redirect( home_url( '/waiter-dashboard/' ) );
+        } elseif ( in_array( 'qr_kitchen', $user_roles ) ) {
+            wp_redirect( home_url( '/kitchen-dashboard/' ) );
+        } elseif ( in_array( 'qr_manager', $user_roles ) ) {
+            wp_redirect( home_url( '/restaurant-dashboard/' ) );
+        } else {
+            wp_redirect( home_url() ); // অন্য কোনো ইউজার হলে হোম পেজে
+        }
+        exit;
     }
 
     /**
-     * Sudhu Administrator kina ta check kora (Restaurant Create/Subscription er jonno)
+     * Sudhu Administrator kina ta check kora
      */
     public static function is_admin_only() {
         if ( ! current_user_can( 'administrator' ) ) {
-            wp_die( __( 'Sudhu matro Main Administrator ei kajti korte parben.', 'qr-restaurant-system' ) );
+            wp_die( __( 'This action is restricted to the Administrator / Restaurant only.', 'qr-restaurant-system' ) );
         }
     }
 
