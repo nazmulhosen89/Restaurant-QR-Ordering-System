@@ -95,11 +95,7 @@ function handle_fetch_item_wise_report() {
                 <div style="width:52px; height:52px; border-radius:8px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:22px;">🍽️</div>
             <?php endif; ?>
             <div class="rank-info">
-<<<<<<< HEAD
                 <div class="rank-label"><i class="fas fa-trophy"></i> Highest Selling</div>
-=======
-                <div class="rank-label">🏆 Highest Selling</div>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                 <div class="rank-name"><?php echo esc_html($highest_item->item_name); ?></div>
                 <div class="rank-qty"><?php echo intval($highest_item->total_qty); ?> sold &bull; <?php echo $currency . number_format($highest_item->total_amount, 2); ?></div>
             </div>
@@ -111,11 +107,7 @@ function handle_fetch_item_wise_report() {
                 <div style="width:52px; height:52px; border-radius:8px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:22px;">🍽️</div>
             <?php endif; ?>
             <div class="rank-info">
-<<<<<<< HEAD
                 <div class="rank-label"><i class="fas fa-chart-bar"></i> Average Selling</div>
-=======
-                <div class="rank-label">📊 Average Selling</div>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                 <div class="rank-name"><?php echo esc_html($avg_item->item_name); ?></div>
                 <div class="rank-qty"><?php echo intval($avg_item->total_qty); ?> sold &bull; <?php echo $currency . number_format($avg_item->total_amount, 2); ?></div>
             </div>
@@ -127,11 +119,7 @@ function handle_fetch_item_wise_report() {
                 <div style="width:52px; height:52px; border-radius:8px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:22px;">🍽️</div>
             <?php endif; ?>
             <div class="rank-info">
-<<<<<<< HEAD
                 <div class="rank-label"><i class="fas fa-chart-line"></i> Lowest Selling</div>
-=======
-                <div class="rank-label">📉 Lowest Selling</div>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                 <div class="rank-name"><?php echo esc_html($lowest_item->item_name); ?></div>
                 <div class="rank-qty"><?php echo intval($lowest_item->total_qty); ?> sold &bull; <?php echo $currency . number_format($lowest_item->total_amount, 2); ?></div>
             </div>

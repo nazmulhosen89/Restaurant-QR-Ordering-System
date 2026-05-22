@@ -87,29 +87,17 @@ function handle_fetch_kitchen_report() {
                 <small style="opacity:0.6;"><?php echo $g_qty; ?> total items ordered</small>
             </div>
             <div style="background:#fff; border:2px solid #10b981; padding:20px; border-radius:12px;">
-<<<<<<< HEAD
                 <span style="font-size:10px; font-weight:700; color:#10b981; text-transform:uppercase;float: left; width:100%; line-height: 1.5em;"><i class="far fa-check-circle"></i> Completed</span>
-=======
-                <span style="font-size:10px; font-weight:700; color:#10b981; text-transform:uppercase;">✅ Completed</span>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                 <h3 style="margin:5px 0 0; color:#1e293b;"><?php echo $g_completed; ?></h3>
                 <small style="color:#64748b;"><?php echo $g_total > 0 ? round(($g_completed/$g_total)*100,1) : 0; ?>%</small>
             </div>
             <div style="background:#fff; border:2px solid #3b82f6; padding:20px; border-radius:12px;">
-<<<<<<< HEAD
                 <span style="font-size:10px; font-weight:700; color:#3b82f6; text-transform:uppercase;float: left; width:100%; line-height: 1.5em;"><i class="fas fa-sync"></i> Processing</span>
-=======
-                <span style="font-size:10px; font-weight:700; color:#3b82f6; text-transform:uppercase;">🔄 Processing</span>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                 <h3 style="margin:5px 0 0; color:#1e293b;"><?php echo $g_processing; ?></h3>
                 <small style="color:#64748b;"><?php echo $g_total > 0 ? round(($g_processing/$g_total)*100,1) : 0; ?>%</small>
             </div>
             <div style="background:#fff; border:2px solid #ef4444; padding:20px; border-radius:12px;">
-<<<<<<< HEAD
                 <span style="font-size:10px; font-weight:700; color:#ef4444; text-transform:uppercase;float: left; width:100%; line-height: 1.5em;"><i class="far fas fa-times"></i> Cancelled</span>
-=======
-                <span style="font-size:10px; font-weight:700; color:#ef4444; text-transform:uppercase;">❌ Cancelled</span>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                 <h3 style="margin:5px 0 0; color:#1e293b;"><?php echo $g_cancelled; ?></h3>
                 <small style="color:#64748b;"><?php echo $g_total > 0 ? round(($g_cancelled/$g_total)*100,1) : 0; ?>%</small>
             </div>
@@ -160,19 +148,11 @@ function handle_fetch_kitchen_report() {
                     }
 
                     $s = $row->order_status;
-<<<<<<< HEAD
                     if ( $s === 'completed' )                        { $s_label = 'Completed';       $s_bg = '#d1fae5'; $s_color = '#065f46'; }
                     elseif ( $s === 'cancelled' )                    { $s_label = 'Cancelled';       $s_bg = '#fee2e2'; $s_color = '#991b1b'; }
                     elseif ( $s === 'pending' )                      { $s_label = 'Pending';         $s_bg = '#fef3c7'; $s_color = '#92400e'; }
                     elseif ( $s === 'processing' )                   { $s_label = 'Processing';      $s_bg = '#ede9fe'; $s_color = '#5b21b6'; }
                     elseif ( in_array($s, array('ready','served')) ) { $s_label = ' ' . ucfirst($s); $s_bg = '#dbeafe'; $s_color = '#1e40af'; }
-=======
-                    if ( $s === 'completed' )                        { $s_label = '✅ Completed';       $s_bg = '#d1fae5'; $s_color = '#065f46'; }
-                    elseif ( $s === 'cancelled' )                    { $s_label = '❌ Cancelled';       $s_bg = '#fee2e2'; $s_color = '#991b1b'; }
-                    elseif ( $s === 'pending' )                      { $s_label = '⏳ Pending';         $s_bg = '#fef3c7'; $s_color = '#92400e'; }
-                    elseif ( $s === 'processing' )                   { $s_label = '🔄 Processing';      $s_bg = '#ede9fe'; $s_color = '#5b21b6'; }
-                    elseif ( in_array($s, array('ready','served')) ) { $s_label = '🍽️ ' . ucfirst($s); $s_bg = '#dbeafe'; $s_color = '#1e40af'; }
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                     else                                             { $s_label = ucfirst($s);          $s_bg = '#f1f5f9'; $s_color = '#475569'; }
 
                     $inv_no    = '#' . date('Ym', strtotime($row->created_at)) . str_pad($row->id, 4, '0', STR_PAD_LEFT);

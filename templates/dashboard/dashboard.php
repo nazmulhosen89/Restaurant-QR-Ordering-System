@@ -10,7 +10,6 @@ if ( ! session_id() ) {
     session_start();
 }
 
-<<<<<<< HEAD
 QRRS_Auth::has_permission('qr_manager'); 
 
 // Licence check
@@ -18,17 +17,6 @@ $license = qrrs_check_system_license();
 
 /**
  * license expired check
-=======
-// চেক করা হচ্ছে ইউজারের পারমিশন আছে কি না
-QRRS_Auth::has_permission('qr_manager'); 
-
-// ১. লাইসেন্স চেক করা হচ্ছে (subscription-functions.php থেকে ডাটা নিচ্ছে)
-$license = qrrs_check_system_license(); 
-
-/**
- * ২. লাইসেন্স যদি মেয়াদোত্তীর্ণ হয় (Expired)
- * তাহলে এখান থেকেই এক্সিকিউশন বন্ধ হয়ে যাবে এবং লক স্ক্রিন দেখাবে।
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
  */
 if ( $license['is_expired'] ) : ?>
     <div class="license-lock-overlay">
@@ -42,10 +30,6 @@ if ( $license['is_expired'] ) : ?>
             
             <div class="lock-renewal-form-container" style="margin-top: 30px; border-top: 1px solid #edf2f7; padding-top: 30px; text-align: left;">
                 <?php 
-<<<<<<< HEAD
-=======
-                // শুধুমাত্র সাবস্ক্রিপশন ফরমটি এখানে লোড হবে
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                 include QRRS_PATH . 'includes/subscriptions/subscription.php'; 
                 ?>
             </div>
@@ -78,20 +62,11 @@ endif;
 
 
 /**
-<<<<<<< HEAD
  * license active
-=======
- * ৩. লাইসেন্স যদি সচল থাকে
- * এখান থেকে ড্যাশবোর্ডের আসল লজিক শুরু।
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
  */
 global $wpdb;
 $user_id = get_current_user_id();
 
-<<<<<<< HEAD
-=======
-// রেস্টুরেন্ট সিলেকশন লজিক
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 if ( current_user_can('administrator') ) {
     if ( isset($_GET['set_res']) ) {
         $_SESSION['qrrs_active_res_id'] = intval($_GET['set_res']);
@@ -113,7 +88,6 @@ $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : (curren
 
 <div class="qrrs-dashboard-container">
     
-    <!-- লাইসেন্স শেষ হওয়ার আগে সতর্কবার্তা (১৫ দিন বাকি থাকলে দেখাবে) -->
     <?php if ( $license['days_left'] <= 15 && $license['days_left'] > 0 ) : ?>
         <div class="qrrs-license-popup-fixed">
             <div class="qrrs-popup-inner">
@@ -175,11 +149,7 @@ $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : (curren
                     </div>
                 </div>
 
-<<<<<<< HEAD
                 <div id="user-dropdown" class="qrrs-dropdown-menu" style="display:none; position:absolute; right:0; top:100%; background:#fff; border:1px solid #ddd; border-radius:8px; box-shadow:0 10px 15px rgba(0,0,0,0.1); width:200px; z-index:9999;">
-=======
-                <div id="user-dropdown" class="qrrs-dropdown-menu" style="display:none; position:absolute; right:0; top:100%; background:#fff; border:1px solid #ddd; border-radius:8px; box-shadow:0 10px 15px rgba(0,0,0,0.1); width:200px; z-index:100;">
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                     <a href="?tab=profile" class="dropdown-item" style="display:block; padding:10px 15px; text-decoration:none; color:#333; border-bottom:1px solid #eee;">👤 My Profile</a>
                     <?php if ( current_user_can( 'administrator' ) ) : ?>
                         <a href="?tab=subscriptions" class="dropdown-item" style="display:block; padding:10px 15px; text-decoration:none; color:#333; border-bottom:1px solid #eee;">🔑 License Info</a>
@@ -212,7 +182,6 @@ $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : (curren
 
         <main class="qrrs-main-content">
             <?php 
-<<<<<<< HEAD
            if ( current_user_can('administrator') && !$active_res_id && !in_array($current_tab, ['restaurants', 'subscriptions', 'profile']) ) {
    
            $default_img_url = plugins_url('assets/images/restaurant.png', dirname(dirname(__FILE__)));
@@ -237,17 +206,6 @@ $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : (curren
                                     <img src="' . esc_url($logo_src) . '" alt="'.esc_attr($res->restaurant_name).'" style="width: 60px; height: 60px; object-fit: cover; border-radius: 50%; border: 2px solid #eee;">
                                     <span>'.esc_html($res->restaurant_name).'</span>
                                 </a>';
-=======
-            if ( current_user_can('administrator') && !$active_res_id && !in_array($current_tab, ['restaurants', 'subscriptions', 'profile']) ) {
-                echo '<div class="no-res-selected" style="text-align:center; padding:50px;">
-                        <div style="font-size:60px; margin-bottom:20px;">🏢</div>
-                        <h2>No Restaurant Selected</h2>
-                        <p>Please select a restaurant to manage its data.</p>
-                        <div class="res-selection-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:15px; margin-top:30px;">';
-                        $restaurants = $wpdb->get_results("SELECT id, restaurant_name FROM {$wpdb->prefix}qrrs_restaurants");
-                        foreach ($restaurants as $res) {
-                            echo '<a href="?tab='.$current_tab.'&set_res='.$res->id.'" style="background:#fff; border:1px solid #ddd; padding:20px; border-radius:10px; text-decoration:none; color:#333; font-weight:600; box-shadow:0 2px 5px rgba(0,0,0,0.05);">'.esc_html($res->restaurant_name).'</a>';
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                         }
                 echo '</div></div>';
             } else {
@@ -300,10 +258,6 @@ $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : (curren
 
 <script>
 jQuery(document).ready(function($){
-<<<<<<< HEAD
-=======
-    // ড্রপডাউন মেনু হ্যান্ডলার
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     $(window).on('click', function(event) {
         if (!$(event.target).closest('.kitchen-user-nav').length) {
             $('#user-dropdown').hide();

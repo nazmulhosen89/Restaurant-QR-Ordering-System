@@ -237,22 +237,14 @@ function qrrs_submit_waiter_order() {
             $order_id
         )));
 
-<<<<<<< HEAD
         // DB থেকে আগের tax ও sc আনো
-=======
-        // DB থেকে আগের tax ও sc আনো — ✅ $order_charges ব্যবহার করো
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         $order_charges = $wpdb->get_row($wpdb->prepare(
             "SELECT tax_amount, service_charge FROM {$wpdb->prefix}qrrs_orders WHERE id = %d",
             $order_id
         ));
 
         // পুরনো tax/sc এর সাথে নতুন items এর tax/sc যোগ করো
-<<<<<<< HEAD
         $new_tax   = (float)$order_charges->tax_amount   + $tax_amount;   
-=======
-        $new_tax   = (float)$order_charges->tax_amount   + $tax_amount;   // ✅ $order_charges (আগে $existing ছিল — bug!)
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         $new_sc    = (float)$order_charges->service_charge + $service_charge;
         $new_grand = $new_subtotal + $new_tax + $new_sc;
 
@@ -316,7 +308,6 @@ function qrrs_waiter_poll() {
     $waiter_id = intval($_POST['waiter_id'] ?? 0);
     if (!$res_id) { wp_send_json_error('Missing res_id'); return; }
 
-<<<<<<< HEAD
     /**
      * ✨ FIX: CURDATE() এর পরিবর্তে ডাইনামিক লোকাল টাইমজোন বাউন্ড ব্যবহার করা
      * এর ফলে সার্ভারের টাইম জোনের কারণে সকাল ৬টা পর্যন্ত ডেটা আটকে থাকবে না।
@@ -331,26 +322,14 @@ function qrrs_waiter_poll() {
          WHERE restaurant_id = %d AND order_status = 'ready'
            AND waiter_id = %d AND created_at BETWEEN %s AND %s",
         $res_id, $waiter_id, $local_start, $local_end
-=======
-    $ready_count = intval($wpdb->get_var($wpdb->prepare(
-        "SELECT COUNT(*) FROM {$wpdb->prefix}qrrs_orders
-         WHERE restaurant_id = %d AND order_status = 'ready'
-           AND waiter_id = %d AND DATE(created_at) = CURDATE()",
-        $res_id, $waiter_id
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     )));
 
     $qr_count = intval($wpdb->get_var($wpdb->prepare(
         "SELECT COUNT(*) FROM {$wpdb->prefix}qrrs_orders
          WHERE restaurant_id = %d AND waiter_id = 0
            AND order_status NOT IN ('completed','cancelled','billing')
-<<<<<<< HEAD
            AND created_at BETWEEN %s AND %s",
         $res_id, $local_start, $local_end
-=======
-           AND DATE(created_at) = CURDATE()",
-        $res_id
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     )));
 
     wp_send_json_success([
@@ -391,21 +370,12 @@ function handle_qrrs_claim_qr_order() {
     $order_id  = intval($_POST['order_id']);
     $waiter_id = get_current_user_id();
 
-<<<<<<< HEAD
-=======
-    // শুধুমাত্র যদি বর্তমান waiter_id ০ (QR Order) হয়, তবেই এটি আপডেট হবে
-    // এটি নিশ্চিত করে যে অ্যাডমিন বা ম্যানেজারদের আইডি পরিবর্তন হবে না
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     $updated = $wpdb->update(
         $wpdb->prefix . 'qrrs_orders',
         array('waiter_id' => $waiter_id),
         array(
             'id' => $order_id, 
-<<<<<<< HEAD
             'waiter_id' => 0 
-=======
-            'waiter_id' => 0 // কন্ডিশন: শুধুমাত্র আনক্লেইমড অর্ডার
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         )
     );
 

@@ -19,26 +19,15 @@ if ( current_user_can('administrator') ) {
 <div class="order-dash-wrapper">
     <?php if (!$active_res_id): ?>
         <div style="text-align:center; padding:100px;">
-<<<<<<< HEAD
             <h2><img width="100" height="163" src="../assets/images/restaurant.png" alt=""> Please select a restaurant first to see orders.</h2>
-=======
-            <h2>🏢 Please select a restaurant first to see orders.</h2>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         </div>
     <?php else: ?>
         <div class="dash-header">
             <div>
-<<<<<<< HEAD
                 <h2 style="margin:0;"><span class="material-icons-outlined">fastfood</span> Orders Dashboard</h2>
                 <small id="live-clock" style="color: #636e72; font-weight: 600;"></small>
             </div>
             <button id="dashSoundToggle" class="sound-control"><span class="material-icons-outlined">notifications_active</span> Sound On</button>
-=======
-                <h2 style="margin:0;">📦 Orders Dashboard</h2>
-                <small id="live-clock" style="color: #636e72; font-weight: 600;"></small>
-            </div>
-            <button id="dashSoundToggle" class="sound-control">🔔 Sound On</button>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         </div>
 
         <div class="orders-stats-grid">
@@ -80,11 +69,7 @@ jQuery('#dashSoundToggle').click(function() {
     if(!isMutedDash) dashSound.play().then(() => dashSound.pause());
 });
 
-<<<<<<< HEAD
 // рзй. ржбрж╛ржЯрж╛ рж▓рзЛржб ржХрж░рж╛ (Modified to send restaurant_id)
-=======
-// ৩. ডাটা লোড করা (Modified to send restaurant_id)
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 function loadAllOrders() {
     if(!activeResId) return;
 
@@ -121,11 +106,7 @@ function loadAllOrders() {
             let footerHtml = '';
             let billSummaryHtml = '';
 
-<<<<<<< HEAD
             // ржХржирзНржбрж┐рж╢ржи: served ржмрж╛ рждрж╛рж░ ржкрж░рзЗрж░ рж╕рзНржЯрзНржпрж╛ржЯрж╛рж╕ рж╣рж▓рзЗ ржмрж┐рж▓рзЗрж░ рж╣рж┐рж╕рж╛ржм ржжрзЗржЦрж╛ржмрзЗ
-=======
-            // কন্ডিশন: served বা তার পরের স্ট্যাটাস হলে বিলের হিসাব দেখাবে
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             const showPricing = (o.status === 'served' || o.status === 'billing' || o.status === 'settle_bill');
 
             let itemsProcessedHtml = '';
@@ -135,11 +116,7 @@ function loadAllOrders() {
                     let itemStyle = isAdditional ? 'color: #8b5cf6; font-style: italic;' : 'color: #2d3436;';
                     let additionalLabel = isAdditional ? '<small style="color:#8b5cf6; font-weight:bold;">[ADDITIONAL]</small> ' : '';
                     
-<<<<<<< HEAD
                     // рж╕рзНржЯрзНржпрж╛ржЯрж╛рж╕ ржЕржирзБржпрж╛ржпрж╝рзА ржЖржЗржЯрзЗржорзЗрж░ ржкрзНрж░рж╛ржЗрж╕ ржжрзЗржЦрж╛ржирзЛ
-=======
-                    // স্ট্যাটাস অনুযায়ী আইটেমের প্রাইস দেখানো
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                     let priceDisplay = showPricing 
                         ? `<span style="float:right; font-weight:700; color:#2d3436;">${parseFloat(item.line_total || 0).toFixed(2)}</span>` 
                         : '';
@@ -148,32 +125,19 @@ function loadAllOrders() {
                         <div style="margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 5px; ${itemStyle}">
                             ${priceDisplay}
                             <span style="font-weight:700;">${item.qty}x</span> ${additionalLabel}${item.name}
-<<<<<<< HEAD
                             ${item.variant_name ? `<br><small style="margin-left:20px; color:#e67e22;"><span class="material-icons-outlined" style="font-size:13px;">subdirectory_arrow_right</span> ${item.variant_name}</small>` : ''}
-=======
-                            ${item.variant_name ? `<br><small style="margin-left:20px; color:#e67e22;">↳ ${item.variant_name}</small>` : ''}
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                         </div>`;
                 });
             } else {
                 itemsProcessedHtml = o.items_html;
             }
 
-<<<<<<< HEAD
             // ржмрж┐рж▓ рж╕рж╛ржорж╛рж░рж┐ (Subtotal, VAT, Total) ржжрзЗржЦрж╛ржирзЛ
             if (showPricing) {
                 // ржЖржЧрзЗрж░ ржлрзНрж▓рзЛржЯрж┐ржВ ржХрзНржпрж╛рж▓ржХрзБрж▓рзЗрж╢ржи
                 let rawTotal = parseFloat(o.subtotal || 0) + parseFloat(o.vat_amount || 0) + parseFloat(o.service_charge || 0);
                 
                 // ржЖржкржирж╛рж░ рж░рж┐ржХрзЛрзЯрзЗрж╕рзНржЯ ржЕржирзБржпрж╛рзЯрзА рж░рж╛ржЙржирзНржб ржлрж┐ржЧрж╛рж░ ржХрж░рж╛ (.50 ржПрж░ ржЙржкрж░рзЗ рзз ржпрзЛржЧ рж╣ржмрзЗ, ржирж┐ржЪрзЗ рж╣рж▓рзЗ ржмрж╛ржж ржпрж╛ржмрзЗ)
-=======
-            // বিল সামারি (Subtotal, VAT, Total) দেখানো
-            if (showPricing) {
-                // আগের ফ্লোটিং ক্যালকুলেশন
-                let rawTotal = parseFloat(o.subtotal || 0) + parseFloat(o.vat_amount || 0) + parseFloat(o.service_charge || 0);
-                
-                // আপনার রিকোয়েস্ট অনুযায়ী রাউন্ড ফিগার করা (.50 এর উপরে ১ যোগ হবে, নিচে হলে বাদ যাবে)
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                 let roundTotal = Math.round(rawTotal); 
                 
                 billSummaryHtml = `
@@ -182,11 +146,7 @@ function loadAllOrders() {
                         <div class="bill-row"><span>VAT</span> <span>${parseFloat(o.vat_amount || 0).toFixed(2)}</span></div>
                         <div class="bill-row"><span>Service</span> <span>${parseFloat(o.service_charge || 0).toFixed(2)}</span></div>
                         <div class="bill-row bill-total" style="border-top: 2px dashed #27ae60;">
-<<<<<<< HEAD
                             <strong>Total</strong> 
-=======
-                            <strong>Total (Round)</strong> 
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                             <strong>৳ ${roundTotal}</strong>
                         </div>
                         ${rawTotal !== roundTotal ? `<small style="display:block; text-align:right; color:#888;">Actual: ৳ ${rawTotal.toFixed(2)}</small>` : ''}
@@ -194,7 +154,6 @@ function loadAllOrders() {
                 `;
             }
 
-<<<<<<< HEAD
             // ржмрж╛ржЯржи рж▓ржЬрж┐ржХ
             if (o.status === 'pending') {
                 footerHtml = `<button onclick="updateDashStatus(${o.id}, 'cancelled')" class="dash-btn btn-cancel">Cancel</button>
@@ -207,20 +166,6 @@ function loadAllOrders() {
                 footerHtml = `<button onclick="updateDashStatus(${o.id}, 'billing')" class="dash-btn btn-finalize" style="width:100%; background:#d35400; color:#fff;"><span class="material-icons-outlined">receipt_long</span> Close Order</button>`;
             } else if (o.status === 'billing') {
                 footerHtml = `<button onclick="goToBilling(${o.id})" class="dash-btn btn-pay" style="width:100%"><span class="material-icons-outlined">point_of_sale</span> Collect Payment & Complete</button>`;
-=======
-            // বাটন লজিক
-            if (o.status === 'pending') {
-                footerHtml = `<button onclick="updateDashStatus(${o.id}, 'cancelled')" class="dash-btn btn-cancel">Cancel</button>
-                            <button onclick="updateDashStatus(${o.id}, 'processing')" class="dash-btn btn-process">🔥 Start Cooking</button>`;
-            } else if (o.status === 'processing') {
-                footerHtml = `<button onclick="updateDashStatus(${o.id}, 'ready')" class="dash-btn btn-ready" style="width:100%">✅ Mark as Ready</button>`;
-            } else if (o.status === 'ready') {
-                footerHtml = `<button onclick="updateDashStatus(${o.id}, 'served')" class="dash-btn btn-serve" style="width:100%">🚀 Mark as Served</button>`;
-            } else if (o.status === 'served') {
-                footerHtml = `<button onclick="updateDashStatus(${o.id}, 'billing')" class="dash-btn btn-finalize" style="width:100%; background:#d35400; color:#fff;">🧾 Close Order (To Billing)</button>`;
-            } else if (o.status === 'billing') {
-                footerHtml = `<button onclick="goToBilling(${o.id})" class="dash-btn btn-pay" style="width:100%">💰 Collect Payment & Complete</button>`;
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             }
 
            html += `

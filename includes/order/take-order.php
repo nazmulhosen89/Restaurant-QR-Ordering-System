@@ -8,27 +8,15 @@ $current_user_id = get_current_user_id();
  * FIXED: Restaurant ID Logic (Admin Session + Staff Logic)
  */
 if ( current_user_can('administrator') ) {
-<<<<<<< HEAD
     if ( ! session_id() ) session_start();
     $restaurant_id = isset($_SESSION['qrrs_active_res_id']) 
         ? intval($_SESSION['qrrs_active_res_id']) : 0;
 } else {
-=======
-    // Administrator hole session theke active restaurant nibo
-    if ( ! session_id() ) session_start();
-    $restaurant_id = isset($_SESSION['qrrs_active_res_id']) ? intval($_SESSION['qrrs_active_res_id']) : 0;
-} else {
-    // Staff hole ager logic-e thakbe
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     $staff_info = $wpdb->get_row($wpdb->prepare(
         "SELECT restaurant_id FROM {$wpdb->prefix}qrrs_staff WHERE user_id = %d AND status = 'active'",
         $current_user_id
     ));
-<<<<<<< HEAD
     $restaurant_id = $staff_info ? $staff_info->restaurant_id : intval( get_user_meta( $current_user_id, 'assigned_restaurant', true ) );
-=======
-    $restaurant_id = $staff_info ? $staff_info->restaurant_id : get_user_meta($current_user_id, 'assigned_restaurant', true);
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 }
 
 if (!$restaurant_id) {
@@ -123,11 +111,7 @@ $plugin_url = plugin_dir_url(dirname(dirname(__FILE__)));
                     if($is_occupied) {
                         $occupied_count++;
                         $odata = $occupied_map[$t->table_name] ?? null;
-<<<<<<< HEAD
                         $taken_by = $odata ? ($odata->taken_by ?: 'Staff') : 'Customer';
-=======
-                        $taken_by = $odata ? ($odata->taken_by ?: 'Staff') : 'Staff';
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                         $item_count = $odata ? intval($odata->item_count) : 0;
                         $time_ago = $odata ? human_time_diff(strtotime($odata->created_at), current_time('timestamp')) . ' ago' : '';
                         $grand_total = $odata ? number_format($odata->grand_total, 0) : '0';

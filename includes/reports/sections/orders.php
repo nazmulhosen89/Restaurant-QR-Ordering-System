@@ -147,7 +147,6 @@ function buildOrderFooter() {
 
 function printOrderReport() {
     var dateRange = document.getElementById('order-date-range').value || '';
-<<<<<<< HEAD
     var resultEl = document.getElementById('order-report-result');
     if (!resultEl) return;
 
@@ -207,27 +206,6 @@ function printOrderReport() {
         win.print(); 
         win.close(); 
     }, 500);
-=======
-    var clone = document.getElementById('order-report-result').cloneNode(true);
-    clone.querySelectorAll('canvas, script').forEach(function(el) { el.remove(); });
-
-    var win = window.open('', '_blank');
-    win.document.write('<html><head><title>Order Report</title><style>'
-        + 'body{font-family:Arial,sans-serif; padding:20px; color:#000;}'
-        + 'table{width:100%; border-collapse:collapse;}'
-        + 'th{background:#f8fafc; padding:10px; text-align:left; border-bottom:2px solid #ccc; font-size:12px;}'
-        + 'td{padding:9px 10px; border-bottom:1px solid #eee; font-size:12px; vertical-align:middle;}'
-        + 'tr:last-child td{border-top:2px solid #2271b1; font-weight:bold; background:#f0f6fb;}'
-        + '@media print{button{display:none;}}'
-        + '</style></head><body>'
-        + buildOrderHeader(dateRange)
-        + clone.innerHTML
-        + buildOrderFooter()
-        + '</body></html>');
-    win.document.close();
-    win.focus();
-    setTimeout(function() { win.print(); win.close(); }, 600);
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 }
 
 function exportOrderExcel() {
@@ -311,7 +289,6 @@ function doOrderPDF(table) {
 
     doc.save('order-report-' + new Date().toISOString().slice(0,10) + '.pdf');
 }
-<<<<<<< HEAD
 </script>
 
 
@@ -350,6 +327,3 @@ function doOrderPDF(table) {
     }
 }
 </style>
-=======
-</script>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da

@@ -110,7 +110,6 @@ class QRRS_Auth {
             return true;
         }
 
-<<<<<<< HEAD
         // ৩. কন্ডিশন চেক: ইউজারের কি এই পেজ দেখার পারমিশন আছে?
         $roles_to_check = is_array($required_role) ? $required_role : array($required_role);
         $has_access = false;
@@ -137,9 +136,6 @@ class QRRS_Auth {
             wp_redirect( home_url() ); // অন্য কোনো ইউজার হলে হোম পেজে
         }
         exit;
-=======
-        wp_die( __( 'Access Denied: Your status does not allow access to this section', 'qr-restaurant-system' ) );
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     }
 
     /**

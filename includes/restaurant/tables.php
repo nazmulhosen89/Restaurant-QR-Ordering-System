@@ -6,11 +6,7 @@ $table_db = $wpdb->prefix . 'qrrs_tables';
 $res_db   = $wpdb->prefix . 'qrrs_restaurants';
 
 /**
-<<<<<<< HEAD
  * 1. Restaurant ID Logic
-=======
- * 1. FIXED: Restaurant ID Logic (Admin Session + Staff Logic)
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
  */
 if ( current_user_can('administrator') ) {
     if ( ! session_id() ) session_start();
@@ -19,22 +15,14 @@ if ( current_user_can('administrator') ) {
     $active_res_id = get_user_meta(get_current_user_id(), 'assigned_restaurant', true);
 }
 
-<<<<<<< HEAD
-=======
-// রেস্টুরেন্ট সিলেক্ট করা না থাকলে সতর্কতা
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 if (!$active_res_id) {
     echo '<div style="padding:50px; text-align:center;"><h3>❌ Please select a restaurant from the dashboard first.</h3></div>';
     return;
 }
 
-<<<<<<< HEAD
 // ২. টেবিল যোগ করার লজিক (Toast Update)
-=======
-// ২. টেবিল যোগ করার লজিক (নির্দিষ্ট রেস্টুরেন্টের জন্য)
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 if ( isset($_POST['add_table']) ) {
-    $res_id     = intval($_POST['restaurant_id']); // এটি এখন $active_res_id থেকে আসবে
+    $res_id     = intval($_POST['restaurant_id']);
     $t_name     = sanitize_text_field($_POST['table_name']);
     $capacity   = intval($_POST['capacity']);
     $qr_token   = wp_generate_password(12, false); 
@@ -46,24 +34,16 @@ if ( isset($_POST['add_table']) ) {
         'qr_token'      => $qr_token,
         'status'        => 'available'
     ]);
-<<<<<<< HEAD
     // Toast Success
     echo "<div class='qrrs-toast success'>Table '$t_name' added successfully!</div>";
 }
 
 // ৩. টেবিল ডিলিট করার লজিক (Toast Update)
-=======
-    echo "<div class='success-msg' style='background:#dcfce7; color:#166534; padding:10px; border-radius:5px; margin-bottom:15px;'>✅ Table '$t_name' added successfully!</div>";
-}
-
-// ৩. টেবিল ডিলিট করার লজিক (নিরাপত্তার জন্য রেস্টুরেন্ট আইডি সহ চেক)
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 if ( isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']) ) {
     $wpdb->delete($table_db, [
         'id'            => intval($_GET['id']),
         'restaurant_id' => $active_res_id
     ]);
-<<<<<<< HEAD
     // Toast Delete/Warning
     echo "<div class='qrrs-toast success'>Table deleted successfully!</div>";
     
@@ -71,12 +51,6 @@ if ( isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id'])
     echo "<script>setTimeout(function(){ window.location.href='?tab=tables'; }, 2000);</script>";
 }
 
-=======
-    echo "<div class='success-msg' style='background:#fee2e2; color:#991b1b; padding:10px; border-radius:5px; margin-bottom:15px;'>🗑️ Table deleted!</div>";
-}
-
-// ৪. অ্যাক্টিভ রেস্টুরেন্টের নাম ফেচ করা
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $res_db WHERE id = %d", $active_res_id));
 ?>
 
@@ -129,10 +103,7 @@ $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $r
                 <th style="padding:12px; text-align:left;">Table Name</th>
                 <th style="padding:12px; text-align:left;">Capacity</th>
                 <th style="padding:12px; text-align:left;">QR Code</th>
-<<<<<<< HEAD
                 <th style="padding:12px; text-align:left;">QR Token</th>
-=======
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                 <th style="padding:12px; text-align:left;">Action</th>
             </tr>
         </thead>
@@ -160,14 +131,11 @@ $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $r
                     </button>
                 </td>
                 <td style="padding:12px;">
-<<<<<<< HEAD
                 <code style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; color: #475569; font-size: 12px;">
                     <?php echo esc_html($row->qr_token); ?>
                 </code>
             </td>
                 <td style="padding:12px;">
-=======
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                     <a href="?tab=tables&action=delete&id=<?php echo $row->id; ?>" class="delete-link" onclick="return confirm('Delete this table?')">Delete</a>
                 </td>
             </tr>
@@ -195,7 +163,6 @@ $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $r
 
 <script>
     jQuery(document).ready(function($){
-<<<<<<< HEAD
     
     
     function handleToast() {
@@ -211,9 +178,6 @@ $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $r
         handleToast();
 
 
-=======
-    // ... আগের কোড থাকবে ...
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 
     $('#print-all-qr').on('click', function(){
         var printContainer = $('#print-all-container');

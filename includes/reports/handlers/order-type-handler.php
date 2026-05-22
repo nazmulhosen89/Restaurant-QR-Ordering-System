@@ -93,11 +93,7 @@ function handle_fetch_order_type_report() {
             <small style="opacity:0.6;"><?php echo $total_orders; ?> orders</small>
         </div>
         <div style="background:#fff; border:2px solid #10b981; padding:20px; border-radius:12px;">
-<<<<<<< HEAD
             <span style="font-size:10px; font-weight:700; color:#10b981; text-transform:uppercase;float:left; width:100%; line-height:2.2em;"><span class="material-icons-outlined">ramen_dining</span> Dine-in</span>
-=======
-            <span style="font-size:10px; font-weight:700; color:#10b981; text-transform:uppercase;">🍽️ Dine-in</span>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             <h3 style="margin:5px 0 0; color:#1e293b;"><?php echo $currency . number_format($dinein_total, 2); ?></h3>
             <small style="color:#64748b;"><?php echo $dinein_orders; ?> orders &bull; <?php echo $dinein_pct; ?>%</small>
             <div style="margin-top:8px; height:5px; background:#f1f5f9; border-radius:3px;">
@@ -105,11 +101,7 @@ function handle_fetch_order_type_report() {
             </div>
         </div>
         <div style="background:#fff; border:2px solid #f59e0b; padding:20px; border-radius:12px;">
-<<<<<<< HEAD
             <span style="font-size:10px; font-weight:700; color:#f59e0b; text-transform:uppercase;float:left; width:100%; line-height:2.2em;"><span class="material-icons-outlined">takeout_dining</span> Takeaway</span>
-=======
-            <span style="font-size:10px; font-weight:700; color:#f59e0b; text-transform:uppercase;">🥡 Takeaway</span>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             <h3 style="margin:5px 0 0; color:#1e293b;"><?php echo $currency . number_format($takeaway_total, 2); ?></h3>
             <small style="color:#64748b;"><?php echo $takeaway_orders; ?> orders &bull; <?php echo $takeaway_pct; ?>%</small>
             <div style="margin-top:8px; height:5px; background:#f1f5f9; border-radius:3px;">
@@ -117,11 +109,7 @@ function handle_fetch_order_type_report() {
             </div>
         </div>
         <div style="background:#fff; border:2px solid #3b82f6; padding:20px; border-radius:12px;">
-<<<<<<< HEAD
             <span style="font-size:10px; font-weight:700; color:#3b82f6; text-transform:uppercase;float:left; width:100%; line-height:2.2em;"><span class="material-icons-outlined">delivery_dining</span> Delivery</span>
-=======
-            <span style="font-size:10px; font-weight:700; color:#3b82f6; text-transform:uppercase;">🛵 Delivery</span>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             <h3 style="margin:5px 0 0; color:#1e293b;"><?php echo $currency . number_format($delivery_total, 2); ?></h3>
             <small style="color:#64748b;"><?php echo $delivery_orders; ?> orders &bull; <?php echo $delivery_pct; ?>%</small>
             <div style="margin-top:8px; height:5px; background:#f1f5f9; border-radius:3px;">

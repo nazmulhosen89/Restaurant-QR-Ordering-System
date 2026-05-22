@@ -2,18 +2,10 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 if ( ! is_user_logged_in() ) {
-<<<<<<< HEAD
     wp_redirect( home_url( '/restaurant-login/' ) ); 
     exit;
 }
 
-=======
-    wp_redirect( home_url( '/restaurant-login/' ) ); // আপনার লগইন পেজের স্লাগ দিন
-    exit;
-}
-
-// ২. ইউজারের ওয়েটার বা ম্যানেজার পারমিশন আছে কি না চেক
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 if ( ! current_user_can( 'qr_waiter' ) && ! current_user_can( 'administrator' ) && ! current_user_can( 'manager' ) ) {
     wp_die( 'Access Denied: You do not have permission to view the Waiter Terminal.', 'Permission Error' );
 }
@@ -106,85 +98,11 @@ $active_orders = $wpdb->get_results($wpdb->prepare("
 
 if (!$tables_data) $tables_data = [];
 
-<<<<<<< HEAD
 $res_table = $wpdb->prefix . 'qrrs_restaurants';
 $res_info  = $wpdb->get_row( $wpdb->prepare("SELECT * FROM $res_table WHERE id = %d", $user_res_id) );
 $db_tax    = isset($res_info->tax_percent) ? floatval($res_info->tax_percent) : 0;
 $db_sc     = isset($res_info->service_charge_percent) ? floatval($res_info->service_charge_percent) : 0;
 
-=======
-// $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'terminal';
-
-$current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'terminal';
-
-// ১. স্ট্যাটাস কুয়েরি (নতুন রিকোয়েস্ট অনুযায়ী)
-$stats = $wpdb->get_row($wpdb->prepare("
-    SELECT 
-        COUNT(id) AS resto_total,
-        SUM(CASE WHEN waiter_id = %d THEN 1 ELSE 0 END) AS my_total,
-        SUM(CASE WHEN waiter_id = %d AND order_status = 'pending' THEN 1 ELSE 0 END) AS my_pending,
-        SUM(CASE WHEN order_status = 'processing' THEN 1 ELSE 0 END) AS resto_kitchen,
-        SUM(CASE WHEN waiter_id = %d AND order_status = 'ready' THEN 1 ELSE 0 END) AS my_ready,
-        SUM(CASE WHEN waiter_id = %d AND order_status = 'served' THEN 1 ELSE 0 END) AS my_served,
-        SUM(CASE WHEN waiter_id = %d AND order_status = 'completed' THEN 1 ELSE 0 END) AS my_completed
-    FROM $table_orders
-    WHERE restaurant_id = %d AND DATE(created_at) = CURDATE()
-", $current_waiter_id, $current_waiter_id, $current_waiter_id, $current_waiter_id, $current_waiter_id, $user_res_id));
-
-// ১. ফ্লোর প্ল্যানের জন্য কুয়েরি (টেবিল নাম অনুযায়ী সিরিয়াল)
-$tables_data = $wpdb->get_results($wpdb->prepare("
-    SELECT t.*, 
-        o.order_status, 
-        o.id AS active_order_id,
-        o.waiter_id,
-        o.created_at,
-        u.display_name as waiter_name
-    FROM $table_tables t
-    LEFT JOIN $table_orders o ON t.table_name = o.table_name 
-        AND o.restaurant_id = %d 
-        AND o.order_status NOT IN ('completed','cancelled','billing')
-        AND DATE(o.created_at) = CURDATE()
-    LEFT JOIN {$wpdb->prefix}users u ON o.waiter_id = u.ID
-    WHERE t.restaurant_id = %d
-    GROUP BY t.table_name
-    /* ফ্লোর প্ল্যান হবে টেবিল নম্বর অনুযায়ী: Table 1, Table 2... */
-    ORDER BY CAST(SUBSTRING_INDEX(t.table_name,' ',-1) AS UNSIGNED) ASC, t.table_name ASC
-", $user_res_id, $user_res_id));
-
-// ২. অপারেশনাল টাস্কের জন্য আলাদা কুয়েরি (নতুন অর্ডার আগে আসবে)
-$where_clause = "AND (o.waiter_id = $current_waiter_id OR o.waiter_id = 0)";
-// যদি ইউজার অ্যাডমিনিস্ট্রেটর হয় তবে সব দেখাবে
-if ( current_user_can('administrator') ) {
-    $where_clause = ""; 
-}
-$active_orders = $wpdb->get_results($wpdb->prepare("
-    SELECT o.*, u.display_name as waiter_name
-    FROM $table_orders o
-    LEFT JOIN {$wpdb->prefix}users u ON o.waiter_id = u.ID
-    WHERE o.restaurant_id = %d 
-      AND o.order_status NOT IN ('completed','cancelled','billing')
-      AND DATE(o.created_at) = CURDATE()
-      AND (
-          o.waiter_id = %d           /* ১. ওয়েটারের নিজের অর্ডার */
-          OR o.waiter_id = 0         /* ২. কাস্টমারের QR অর্ডার */
-          OR o.waiter_id IN (        /* ৩. অ্যাডমিন বা ম্যানেজারদের আইডি থেকে করা অর্ডার */
-              SELECT ID FROM {$wpdb->base_prefix}users u 
-              INNER JOIN {$wpdb->base_prefix}usermeta um ON u.ID = um.user_id 
-              WHERE um.meta_key = '{$wpdb->prefix}capabilities' 
-              AND (um.meta_value LIKE '%%administrator%%' OR um.meta_value LIKE '%%manager%%')
-          )
-      )
-    ORDER BY o.id DESC
-", $user_res_id, $current_waiter_id));
-
-if (!$tables_data) $tables_data = [];
-
-$res_table = $wpdb->prefix . 'qrrs_restaurants';
-$res_info  = $wpdb->get_row( $wpdb->prepare("SELECT * FROM $res_table WHERE id = %d", $user_res_id) );
-$db_tax    = isset($res_info->tax_percent) ? floatval($res_info->tax_percent) : 0;
-$db_sc     = isset($res_info->service_charge_percent) ? floatval($res_info->service_charge_percent) : 0;
-
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 $item_cols = $wpdb->get_col("SHOW COLUMNS FROM $table_items_db");
 $has_item_type = in_array('item_type', $item_cols);
 ?>
@@ -246,10 +164,6 @@ $has_item_type = in_array('item_type', $item_cols);
 
     <div class="ultra-main-layout">
         
-<<<<<<< HEAD
-=======
-
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         <aside class="ultra-sidebar">
             <div class="panel-head">
                 <h2>Floor Plan</h2>
@@ -293,19 +207,11 @@ $has_item_type = in_array('item_type', $item_cols);
             <div class="service-flow-grid">
     <?php 
     $active_exists = false;
-<<<<<<< HEAD
-=======
-    // এখানে ২য় কুয়েরি থেকে আসা $active_orders ব্যবহার করা হচ্ছে
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     if ( ! empty( $active_orders ) ) :
         foreach ( $active_orders as $order ) :
             
             $order_id = intval($order->id); 
             
-<<<<<<< HEAD
-=======
-            // আইটেম চেক (আইটেম ছাড়া কার্ড দেখাবে না)
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             $item_count = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table_items_db WHERE order_id = %d", $order_id));
             if ( ! $item_count ) continue;
 
@@ -320,10 +226,6 @@ $has_item_type = in_array('item_type', $item_cols);
             $cur_idx   = array_search($status, $step_keys);
             if ($cur_idx === false) $cur_idx = 0;
 
-<<<<<<< HEAD
-=======
-            // আইটেম কুয়েরি
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             $orig_items = $wpdb->get_results($wpdb->prepare(
                 "SELECT item_name, quantity, COALESCE(item_status, 'pending') as item_status 
                 FROM $table_items_db 
@@ -342,16 +244,10 @@ $has_item_type = in_array('item_type', $item_cols);
                     <span class="task-table">
                         <?php echo esc_html($order->table_name); ?>
                         <?php 
-<<<<<<< HEAD
                         // ✨ Dynamic Local Time based Calculation for "NEW" tag pulse
                         $order_time = strtotime($order->created_at);
                         $current_local_time = $local_now->getTimestamp(); // Database object timestamp integration
                         if (($current_local_time - $order_time) < 300): 
-=======
-                        $order_time = strtotime($order->created_at);
-                        $current_time = current_time('timestamp');
-                        if (($current_time - $order_time) < 300): 
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                         ?>
                             <span class="new-tag-pulse" style="background:#22c55e; color:#fff; font-size:9px; padding:2px 6px; border-radius:4px; margin-left:5px;">NEW</span>
                         <?php endif; ?>
@@ -410,16 +306,7 @@ $has_item_type = in_array('item_type', $item_cols);
                 </div>
 
                 <div class="task-footer">
-<<<<<<< HEAD
                     <?php if ( $status === 'pending' ) : ?>
-=======
-                    <?php 
-                    /**
-                     * ১. এডিট বাটন: শুধুমাত্র Pending থাকলে দেখাবে।
-                     */
-                    if ( $status === 'pending' ) : 
-                    ?>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                         <button class="btn-edit-order" 
                             style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);"
                             onclick="handleEditClick(<?php echo $order_id; ?>, '<?php echo esc_js($order->table_name); ?>', '<?php echo $status; ?>', <?php echo $order->waiter_id; ?>)">
@@ -427,15 +314,7 @@ $has_item_type = in_array('item_type', $item_cols);
                         </button>
                         <div class="pending-status-notice" style="text-align:center; color: #94a3b8; font-size: 12px; padding: 5px; width:100%;">⏳ Waiting for Kitchen...</div>
                     
-<<<<<<< HEAD
                     <?php elseif ($status === 'processing'): ?>
-=======
-                    <?php 
-                    /**
-                     * ২. রান্না বা তার পরের স্ট্যাটাসগুলো।
-                     */
-                    elseif ($status === 'processing'): ?>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                         <div class="kitchen-loader" style="width:100%; text-align:center; color: #38bdf8; font-size: 12px; padding-bottom: 10px;">👨‍🍳 Cooking in progress...</div>
                     
                     <?php elseif ($status === 'ready'): ?>
@@ -445,16 +324,7 @@ $has_item_type = in_array('item_type', $item_cols);
                         <button class="btn-action billing-btn" onclick="changeStatus(<?php echo $order_id; ?>, 'billing')">🧾 CLOSE ORDER → BILLING</button>
                     <?php endif; ?>
 
-<<<<<<< HEAD
                     <?php if ( $status !== 'pending' && $can_add ) : ?>
-=======
-                    <?php 
-                    /**
-                     * ৩. অ্যাড আইটেম বাটন: শুধুমাত্র স্ট্যাটাস Pending না হলে (অর্থাৎ সরে গেলে) দেখাবে।
-                     */
-                    if ( $status !== 'pending' && $can_add ) : 
-                    ?>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                         <button class="btn-sm btn-add-item" 
                             onclick="openPopup('add', <?php echo $order_id; ?>, '<?php echo esc_js($order->table_name); ?>')">
                             ➕ Add Items
@@ -464,11 +334,7 @@ $has_item_type = in_array('item_type', $item_cols);
             </div>
         <?php 
         endforeach; 
-<<<<<<< HEAD
     endif;
-=======
-    endif; // এখানে লুপ শেষ হচ্ছে
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 
     if ( ! $active_exists ) echo '<div class="empty-state">No orders available.</div>'; 
     ?>
@@ -558,7 +424,6 @@ $has_item_type = in_array('item_type', $item_cols);
     </div>
 
     <div id="wt-toast" class="wt-toast"></div>
-    <!-- <audio id="order-notification-sound" src="<?php echo plugins_url('assets/sounds/notification_03.mp3', __FILE__); ?>" preload="auto"></audio> -->
 
 </div>
 
@@ -581,10 +446,6 @@ $has_item_type = in_array('item_type', $item_cols);
         </div>
     </div>
 </div>
-<<<<<<< HEAD
-=======
-
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 
 
 <script>
@@ -602,11 +463,6 @@ $has_item_type = in_array('item_type', $item_cols);
     let currentTableName = '';
     let autoRefreshTimer;
     
-<<<<<<< HEAD
-=======
-    // --- Notification & Sound Variables ---
-    let lastOrderCount = $('.task-card').length;
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     let lastOrderStatuses = {};
 
     function syncCurrentStatuses() {
@@ -618,10 +474,6 @@ $has_item_type = in_array('item_type', $item_cols);
     }
     syncCurrentStatuses();
 
-<<<<<<< HEAD
-=======
-    // ====== SOUND ENGINE ======
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     var _audioCtx = null;
     var _soundEnabled = (localStorage.getItem('wt_sound') === '1');
 
@@ -668,16 +520,8 @@ $has_item_type = in_array('item_type', $item_cols);
 
     function playNotificationSound() { _playBeeps([880, 1100], 'sine', 0.45); }
     function playQRSound() { _playBeeps([660, 660, 880], 'square', 0.2); }
-<<<<<<< HEAD
 
     function checkUpdates() {
-=======
-    // ====== END SOUND ENGINE ======
-
-    // --- Background Check Logic (উন্নত ভার্সন) ---
-    function checkUpdates() {
-        // পপআপ খোলা থাকলে নোটিফিকেশন বন্ধ থাকবে
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         if (!$('#order-popup').is(':hidden') || !$('#variant-modal').is(':hidden') || $('.v-modal-overlay').is(':visible')) return;
 
         $.ajax({
@@ -688,32 +532,18 @@ $has_item_type = in_array('item_type', $item_cols);
                 let $html = $(data);
                 let $newTasks = $html.find('.service-flow-grid');
                 let currentOrderIds = [];
-<<<<<<< HEAD
                 let hasReadyStatusChange = false; 
-=======
-                let hasReadyStatusChange = false; // স্পেশাল চেক ready এর জন্য
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                 let hasOtherStatusChange = false;
                 let newStatuses = {};
 
                 $newTasks.find('.task-card').each(function(){
                     let id = $(this).find('.task-id').text().trim();
-<<<<<<< HEAD
-=======
-                    // স্ট্যাটাস টেক্সট নিয়ে সেটাকে ছোট হাতের অক্ষরে রূপান্তর (Case-insensitive check)
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                     let status = $(this).find('.sb-step.active span').text().trim().toLowerCase();
                     
                     currentOrderIds.push(id);
                     newStatuses[id] = status;
 
-<<<<<<< HEAD
                     if (lastOrderStatuses[id] && lastOrderStatuses[id] !== status) {
-=======
-                    // যদি আগের রেকর্ডে এই আইডি থাকে এবং এখন স্ট্যাটাস বদলেছে
-                    if (lastOrderStatuses[id] && lastOrderStatuses[id] !== status) {
-                        // যদি নতুন স্ট্যাটাস ready হয়
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                         if (status === 'ready') {
                             hasReadyStatusChange = true;
                         } else {
@@ -722,38 +552,19 @@ $has_item_type = in_array('item_type', $item_cols);
                     }
                 });
 
-<<<<<<< HEAD
                 let hasNewOrder = currentOrderIds.some(id => !lastOrderStatuses.hasOwnProperty(id));
 
                 if (hasNewOrder) {
                     playQRSound(); 
-=======
-                // নতুন অর্ডার চেক
-                let hasNewOrder = currentOrderIds.some(id => !lastOrderStatuses.hasOwnProperty(id));
-
-                if (hasNewOrder) {
-                    console.log("New order detected!");
-                    playQRSound(); // কিউআর সাউন্ড
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                     showToast("🛎️ New Order Received!", "success");
                     setTimeout(() => { location.reload(); }, 2000);
                 } 
                 else if (hasReadyStatusChange) {
-<<<<<<< HEAD
                     playNotificationSound(); 
-=======
-                    console.log("Status is READY - Playing sound now!");
-                    playNotificationSound(); // রেডি সাউন্ড (সাউন্ড ইঞ্জিনের বড় ডিং)
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                     showToast("✅ Order is READY to serve!", "success");
                     setTimeout(() => { location.reload(); }, 2500);
                 }
                 else if (hasOtherStatusChange) {
-<<<<<<< HEAD
-=======
-                    console.log("Other status change detected.");
-                    // অন্য চেঞ্জে সাউন্ড না চাইলে এটা অফ রাখতে পারেন
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                     showToast("🔄 Order Status Updated", "info");
                     setTimeout(() => { location.reload(); }, 2000);
                 }
@@ -776,10 +587,6 @@ $has_item_type = in_array('item_type', $item_cols);
         if (el) el.innerText = new Date().toLocaleTimeString();
     }, 1000);
 
-<<<<<<< HEAD
-=======
-    /* ====== Auto Refresh (Safety) ====== */
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     function startRefresh() {
         autoRefreshTimer = setInterval(function(){
             if ($('#order-popup').is(':hidden') && $('#variant-modal').is(':hidden') && $('.v-modal-overlay').is(':hidden'))
@@ -789,11 +596,7 @@ $has_item_type = in_array('item_type', $item_cols);
     function stopRefresh() { clearInterval(autoRefreshTimer); }
     startRefresh();
 
-<<<<<<< HEAD
     /* =================== FIXED OPEN POPUP LOGIC =================== */
-=======
-    /* ====== Open Popup ====== */
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     window.openPopup = function(mode, orderId, tableName, currentStatus) {
         stopRefresh();
         currentMode      = mode;
@@ -968,10 +771,6 @@ $has_item_type = in_array('item_type', $item_cols);
         $('#waiter-menu-list').html(html);
     }
 
-<<<<<<< HEAD
-=======
-    /* ====== Variants handling ====== */
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     window.prepareItem = function(idx) {
         var item = window._menuItems[idx]; if (!item) return;
         var rawVar = item.variants || '', variants = [];
@@ -996,10 +795,6 @@ $has_item_type = in_array('item_type', $item_cols);
     };
     window.closeVariant = function() { $('#variant-modal').hide(); };
 
-<<<<<<< HEAD
-=======
-    /* ====== Cart Management ====== */
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     function addToCart(item, variants) {
         var key = item.id+(variants.length?'-'+variants.join('-'):'');
         var ex = cart.find(function(x){ return x.key===key; });
@@ -1038,10 +833,6 @@ $has_item_type = in_array('item_type', $item_cols);
         $('#waiter-cart-items').html(html);
 
         if (currentMode === 'add') {
-<<<<<<< HEAD
-=======
-            // Existing items দেখাও (read-only)
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             var existingHtml = '';
             if (existingItems && existingItems.length) {
                 existingHtml += '<div style="font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">📋 Existing Items</div>';
@@ -1056,15 +847,8 @@ $has_item_type = in_array('item_type', $item_cols);
                             + '<div style="font-size:10px;color:#8b5cf6;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">➕ New Items</div>';
             }
 
-<<<<<<< HEAD
             $('#waiter-cart-items').html(existingHtml + html);
 
-=======
-            // New items cart HTML (html variable already built above)
-            $('#waiter-cart-items').html(existingHtml + html);
-
-            // VAT/SC calculate on new items
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             var taxable_new = 0;
             cart.forEach(function(i){ if(!i.tax_free) taxable_new += i.price*i.qty; });
             var addVat   = taxable_new * (TAX_RATE / 100);
@@ -1116,11 +900,6 @@ $has_item_type = in_array('item_type', $item_cols);
         var btn = document.getElementById('finalBtn') || document.querySelector('#waiter-cart-summary .place-order-btn');
         if (btn) { btn.disabled=true; btn.textContent='Sending...'; }
         
-<<<<<<< HEAD
-=======
-        // if (currentMode==='add') { sub=cart.reduce(function(s,i){return s+(i.price*i.qty);},0); vat=0; sc=0; grand=sub; }
-
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         var processed = cart.map(function(i){ return {id:i.id,name:i.name,price:i.price,qty:i.qty,variants_selected:i.variants.join(', ')}; });
 
         // ✨ LOCAL DEVICE TIME GENERATOR (MySQL Format: YYYY-MM-DD HH:MM:SS)
@@ -1161,25 +940,14 @@ $has_item_type = in_array('item_type', $item_cols);
 
     window.handleEditClick = function(orderId, tableName, status, waiterId) {
         if (waiterId === 0) {
-<<<<<<< HEAD
             $('#qr-claim-modal').fadeIn('fast');
             
-=======
-            // কাস্টম মডাল ওপেন করা
-            $('#qr-claim-modal').fadeIn('fast');
-            
-            // কনফার্ম বাটনে ইভেন্ট সেট করা (আগের ইভেন্ট থাকলে তা ক্লিয়ার করে)
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             $('#confirm-claim-btn').off('click').on('click', function() {
                 $(this).prop('disabled', true).text('Processing...');
                 
                 claimOrder(orderId, function() {
                     $('#qr-claim-modal').fadeOut('fast');
                     openPopup('edit', orderId, tableName, status);
-<<<<<<< HEAD
-=======
-                    // বাটন রিসেট
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                     $('#confirm-claim-btn').prop('disabled', false).text('Yes, Claim & Edit');
                 });
             });
@@ -1192,10 +960,6 @@ $has_item_type = in_array('item_type', $item_cols);
         $('#qr-claim-modal').fadeOut('fast');
     };
 
-<<<<<<< HEAD
-=======
-    // AJAX এর মাধ্যমে অর্ডারের মালিকানা দাবি করা
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     function claimOrder(orderId, callback) {
         $.post(qrrs_vars.ajax_url, {
             action: 'qrrs_claim_qr_order',
@@ -1211,141 +975,11 @@ $has_item_type = in_array('item_type', $item_cols);
         });
     }
     
-<<<<<<< HEAD
     jQuery(document).on('click', function(event) {
         if (!jQuery(event.target).closest('.kitchen-user-nav').length) {
             jQuery('#user-dropdown').hide();
         }
     });
-=======
-
-    jQuery(document).on('click', function(event) {
-    if (!jQuery(event.target).closest('.kitchen-user-nav').length) {
-        jQuery('#user-dropdown').hide();
-    }
-});
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 
 })(jQuery);
 </script>
-
-<style>
-.claim-modal-box {
-    max-width: 400px !important;
-    text-align: center;
-    padding: 40px 30px !important;
-    border-radius: 24px !important;
-    background: #111315 !important; /* Deeper Dark for warning contrast */
-    border: 1px solid rgba(245, 158, 11, 0.3); /* Amber border */
-    box-shadow: 0 0 30px rgba(0,0,0,0.5);
-}
-
-.claim-icon-wrapper {
-    position: relative;
-    width: 80px;
-    height: 80px;
-    background: rgba(245, 158, 11, 0.1); /* Amber background */
-    border: 2px solid #f59e0b; /* Amber border */
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 20px;
-    animation: warning-pulse 2s infinite; /* Attention grabber */
-}
-
-@keyframes warning-pulse {
-    0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
-    70% { box-shadow: 0 0 0 15px rgba(245, 158, 11, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
-}
-
-.claim-icon-wrapper .material-icons-outlined {
-    font-size: 40px;
-    color: #f59e0b; /* Amber color icon */
-    font-weight: bold;
-}
-
-.claim-badge {
-    position: absolute;
-    top: 0; right: 0;
-    background: #ef4444; /* Critical Red badge */
-    color: #fff;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    font-size: 16px;
-    font-weight: 900;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 3px solid #111315;
-}
-
-.claim-modal-box h2 {
-    color: #f59e0b; /* Amber Heading */
-    font-size: 24px;
-    margin-bottom: 12px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.claim-modal-box p {
-    color: #cbd5e1;
-    font-size: 14px;
-    line-height: 1.6;
-}
-
-.claim-info-note {
-    background: rgba(245, 158, 11, 0.07); /* Amber tint note */
-    padding: 12px;
-    border-radius: 12px;
-    margin: 25px 0;
-    font-size: 13px;
-    color: #fbd38d; /* Light Amber text */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    border: 1px dashed rgba(245, 158, 11, 0.3);
-}
-
-.claim-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.btn-confirm-claim {
-    background: #f59e0b !important; /* Warning Orange/Amber */
-    color: #000 !important;
-    border: none;
-    padding: 16px;
-    border-radius: 12px;
-    font-weight: 800;
-    font-size: 15px;
-    cursor: pointer;
-    transition: 0.3s ease;
-    text-transform: uppercase;
-}
-
-.btn-confirm-claim:hover { 
-    background: #d97706 !important; /* Darker amber */
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
-}
-
-.btn-cancel-claim {
-    background: transparent;
-    color: #94a3b8;
-    border: none;
-    padding: 10px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: 0.2s;
-}
-
-.btn-cancel-claim:hover {
-    color: #fff;
-}
-</style>

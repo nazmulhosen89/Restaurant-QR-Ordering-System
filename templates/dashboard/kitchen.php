@@ -6,11 +6,7 @@ if ( ! is_user_logged_in() ) {
     exit;
 }
 
-<<<<<<< HEAD
 // 2
-=======
-// ২. ইউজারের ওয়েটার বা ম্যানেজার পারমিশন আছে কি না চেক
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 if ( ! current_user_can( 'qr_kitchen' ) && ! current_user_can( 'administrator' ) && ! current_user_can( 'manager' ) ) {
     wp_die( 'Access Denied: You do not have permission to view the Waiter Terminal.', 'Permission Error' );
 }
@@ -20,77 +16,6 @@ $current_user = wp_get_current_user();
 $sound_url    = QRRS_URL . 'assets/sounds/notification 01.mp3';
 ?>
 
-<<<<<<< HEAD
-=======
-<style>
-    .kitchen-wrapper { background: #1a1a1a; color: #fff; min-height: 100vh; padding: 20px; font-family: 'Segoe UI', sans-serif; }
-    .kitchen-header { display: flex; justify-content: space-between; align-items: center; background: #2d2d2d; padding: 15px 25px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #3d3d3d; }
-    .kitchen-stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 15px; margin-bottom: 25px; }
-    .k-stat-box { background: #2d2d2d; padding: 15px; border-radius: 8px; text-align: center; border-left: 4px solid #555; }
-    .k-stat-box strong { display: block; font-size: 24px; color: #00d2d3; margin-bottom: 5px; }
-    .k-stat-box small { text-transform: uppercase; font-size: 10px; color: #aaa; font-weight: 600; }
-    .kitchen-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
-
-    /* Card */
-    .k-card { background: #fff; color: #333; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; border-top: 5px solid #00d2d3; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-    .k-card-header { background: #f8f9fa; padding: 12px 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
-    .k-card-body { padding: 15px; flex-grow: 1; }
-    .k-action-btn { width: 100%; padding: 16px; border: none; font-weight: 700; cursor: pointer; font-size: 14px; text-transform: uppercase; transition: 0.2s; }
-    .k-action-btn:hover { opacity: 0.88; }
-    .btn-start { background: #f39c12; color: #fff; }
-    .btn-done  { background: #27ae60; color: #fff; }
-
-    /* ✅ Item rows */
-    .k-item-row { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
-    .k-item-row:last-child { border-bottom: none; }
-    .k-item-qty { font-weight: 800; min-width: 28px; color: #2d3436; }
-
-    /* ✅ Item status styles */
-    .k-item-row.status-ready {
-        text-decoration: line-through;
-        color: #b2bec3;
-        opacity: 0.6;
-    }
-    .k-item-row.status-ready .k-item-qty { color: #b2bec3; }
-    .k-item-row.status-processing { color: #e67e22; }
-    .k-item-row.status-processing .k-item-qty { color: #e67e22; }
-    .k-item-row.status-pending { color: #2d3436; }
-
-    /* ✅ Additional item styles */
-    .k-item-row.type-additional { color: #8b5cf6; }
-    .k-item-row.type-additional .k-item-qty { color: #8b5cf6; }
-    .k-item-row.type-additional.status-ready { color: #c4b5fd; opacity: 0.5; }
-
-    .k-additional-divider {
-        display: flex; align-items: center; gap: 8px;
-        margin: 10px 0 6px 0; font-size: 10px;
-        font-weight: 800; color: #8b5cf6;
-        text-transform: uppercase; letter-spacing: 0.5px;
-    }
-    .k-additional-divider::before,
-    .k-additional-divider::after {
-        content: ''; flex: 1; height: 1px;
-        background: rgba(139, 92, 246, 0.3);
-    }
-
-    .k-item-badge {
-        font-size: 9px; font-weight: 800; padding: 2px 6px;
-        border-radius: 4px; text-transform: uppercase; letter-spacing: 0.3px;
-        flex-shrink: 0;
-    }
-    .badge-new      { background: #ede9fe; color: #7c3aed; }
-    .badge-cooking  { background: #fff4e5; color: #d97706; }
-    .badge-done     { background: #f0fdf4; color: #15803d; }
-
-    .k-variant { font-size: 11px; color: #94a3b8; margin-top: 2px; }
-
-    /* Sound btn */
-    .sound-toggle-btn { background: #34495e; color: #fff; border: 1px solid #555; padding: 8px 15px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; transition: 0.3s; }
-    .sound-toggle-btn.muted { background: #e74c3c; border-color: #c0392b; }
-
-    #user-dropdown a { display:flex; align-items:center; gap:12px; padding:12px 18px; color:#ddd; text-decoration:none; font-size:13px; border-bottom:1px solid #3d3d3d; }
-</style>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 
 <div class="kitchen-wrapper">
     <div class="kitchen-header">

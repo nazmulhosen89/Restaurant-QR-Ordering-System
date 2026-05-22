@@ -9,11 +9,7 @@ class QRRS_Database {
         require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
 
         // Table Prefix
-<<<<<<< HEAD
         $prefix = $wpdb->prefix . 'qrrs_';
-=======
-        $prefix = $wpdb->prefix . 'rest_qrrs_';
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 
         /**
          * 1. Restaurants Table (Updated with your fields)
@@ -74,10 +70,7 @@ class QRRS_Database {
             restaurant_id bigint(20) NOT NULL,
             category_name varchar(255) NOT NULL,
             slug varchar(255) NOT NULL,
-<<<<<<< HEAD
             image varchar(255) DEFAULT NULL,
-=======
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             PRIMARY KEY (id),
             KEY restaurant_id (restaurant_id)
         ) $charset_collate;";
@@ -97,10 +90,7 @@ class QRRS_Database {
             prep_time varchar(50),
             price decimal(10,2) NOT NULL,
             is_available tinyint(1) DEFAULT 1,
-<<<<<<< HEAD
             is_tax_free tinyint(1) NOT NULL DEFAULT '0',
-=======
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             PRIMARY KEY (id),
             KEY category_id (category_id)
         ) $charset_collate;";
@@ -111,10 +101,7 @@ class QRRS_Database {
         $sql_orders = "CREATE TABLE {$prefix}orders (
             id bigint(20) NOT NULL AUTO_INCREMENT,
             restaurant_id bigint(20) NOT NULL,
-<<<<<<< HEAD
             table_name varchar(100) NOT NULL,   
-=======
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             table_id bigint(20) NOT NULL,
             waiter_id bigint(20),
             order_type varchar(20) DEFAULT 'dine_in',
@@ -142,19 +129,13 @@ class QRRS_Database {
             id bigint(20) NOT NULL AUTO_INCREMENT,
             order_id bigint(20) NOT NULL,
             item_id bigint(20) NOT NULL,
-<<<<<<< HEAD
             restaurant_id int(11) NOT NULL,       
             item_name varchar(100) NOT NULL,      
-=======
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             quantity int(11) NOT NULL,
             price decimal(10,2) NOT NULL,
             variants_selected text,
             item_status varchar(20) DEFAULT 'pending',
-<<<<<<< HEAD
             item_type varchar(20) DEFAULT 'original', 
-=======
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             PRIMARY KEY (id),
             KEY order_id (order_id)
         ) $charset_collate;";

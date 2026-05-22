@@ -79,13 +79,8 @@ function handle_fetch_category_wise_report() {
     <!-- Top Category Card -->
     <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:15px; margin-bottom:25px;">
         <div style="background:#1e293b; color:#fff; padding:20px; border-radius:12px;">
-<<<<<<< HEAD
             <span style="font-size:10px; opacity:0.7; text-transform:uppercase;;float: left;">Top Category</span>
             <h3 style="margin:5px 0 0; font-size:18px;float: left;width: 100%;line-height: 2.2em;"><i style="color:#ea9a1d;" class="fas fa-trophy"></i> <?php echo esc_html($top_cat->category_name); ?></h3>
-=======
-            <span style="font-size:10px; opacity:0.7; text-transform:uppercase;">Top Category</span>
-            <h3 style="margin:5px 0 0; font-size:18px;">🏆 <?php echo esc_html($top_cat->category_name); ?></h3>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             <small style="opacity:0.7;"><?php echo $currency . number_format(floatval($top_cat->total_amount), 2); ?> revenue</small>
         </div>
         <div style="background:#1e293b; color:#fff; padding:20px; border-radius:12px;">

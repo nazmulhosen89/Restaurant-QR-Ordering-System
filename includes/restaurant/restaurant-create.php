@@ -126,7 +126,6 @@ if ( isset($_POST['save_restaurant']) ) {
             </div>
         </form>
     </div>
-<<<<<<< HEAD
 
 
     <hr style="margin: 20px 0; border: 1px solid #eee;">
@@ -209,89 +208,6 @@ if ( isset($_POST['save_restaurant']) ) {
 </div>
 
 
-=======
-
-
-    <hr style="margin: 20px 0; border: 1px solid #eee;">
-
-    <div class="qrrs-card">
-        <div class="card-header">
-            <h3>Manage Restaurants</h3>
-        </div>
-        <div class="qrrs-table-container">
-            <table class="qrrs-table">
-                <thead>
-                    <tr>
-                        <th>restaurant_logo</th>
-                        <th>Restaurant Name</th>
-                        <th>Address</th>
-                        <th>Contact Number</th>
-                        <th>BIN Number</th>
-                        <th>Tax/Service</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php 
-                    $all_res = qrrs_get_all_restaurants(); // Amader banano function
-                    if ( !empty($all_res) ) :
-                        foreach ( $all_res as $res ) :
-                    ?>
-                    <tr>
-                        <td>
-                            <?php if($res->restaurant_logo): ?>
-                                <img src="<?php echo esc_url($res->restaurant_logo); ?>" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
-                            <?php else: ?>
-                                <span class="no-img">No Logo</span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <strong><?php echo esc_html($res->restaurant_name); ?></strong><br>
-                            <small>Currency: <?php echo esc_html($res->currency_symbol); ?></small>
-                        </td>
-                        <td><?php echo esc_html($res->address); ?></td>
-                        <td>
-                            <?php echo esc_html($res->phone); ?><br>
-                        </td>
-                        <td>
-                            <?php echo esc_html($res->bin_number ?: 'N/A'); ?>
-                        </td>
-                        <td>
-                            VAT: <?php echo $res->tax_percent; ?>%<br>
-                            SC: <?php echo $res->service_charge_percent; ?>%
-                        </td>
-                        <td>
-                            <span class="status-badge <?php echo $res->status == 'active' ? 'active' : 'inactive'; ?>">
-                                <?php echo ucfirst($res->status); ?>
-                            </span>
-                        </td>
-                        <td>
-                            <div class="action-btns">
-                                <a href="?tab=restaurants&action=edit&id=<?php echo $res->id; ?>" class="edit-btn">Edit</a>
-                                <a href="?tab=restaurants&action=delete&id=<?php echo $res->id; ?>" 
-                                class="delete-btn" 
-                                onclick="return confirm('Are you sure you want to delete this restaurant?')">Delete</a>
-                            </div>
-                        </td>
-                    </tr>
-                    <?php 
-                        endforeach;
-                    else: 
-                    ?>
-                    <tr>
-                        <td colspan="6" style="text-align: center; padding: 30px;">No restaurants found. Please add one.</td>
-                    </tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    </div>
-
-</div>
-
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 
 <script>
 jQuery(document).ready(function($){
@@ -306,7 +222,6 @@ jQuery(document).ready(function($){
         });
     });
 
-<<<<<<< HEAD
     // --- Toast Notification Auto-Hide Logic ---
     if ($('.qrrs-toast').length > 0) {
         setTimeout(function() {
@@ -318,8 +233,3 @@ jQuery(document).ready(function($){
     }
 });
 </script>
-=======
-<style>
-    
-</style>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da

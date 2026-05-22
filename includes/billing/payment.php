@@ -128,13 +128,10 @@ $selected_order_id = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
     from { transform: translateX(0); opacity: 1; }
     to { transform: translateX(100%); opacity: 0; }
 }
-<<<<<<< HEAD
 
 #manager-custom-alert, #manager-custom-confirm {
     backdrop-filter: blur(2px);
 }
-=======
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 </style>
 
 
@@ -417,7 +414,6 @@ $selected_order_id = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
     
 </div>
 
-<<<<<<< HEAD
 
 <div id="manager-custom-alert" class="v-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100000; align-items:center; justify-content:center;">
     <div style="background:#fff; border-radius:12px; padding:25px; width:360px; text-align:center; box-shadow:0 15px 40px rgba(0,0,0,0.2);">
@@ -439,8 +435,6 @@ $selected_order_id = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
         </div>
     </div>
 </div>
-=======
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 <script>
 var _grandTotal    = 0;
 var _discountType  = 'percent';
@@ -532,7 +526,6 @@ function recalculate() {
     // ১. প্রথমে রাউন্ড করা
     // ২. তারপর ২ দশমিক (.00) পর্যন্ত দেখানো
     var payable = Math.round(_grandTotal - discountAmt);
-<<<<<<< HEAD
 
     document.getElementById('discount-amount-display').textContent = discountAmt.toFixed(2) + ' ৳';
     document.getElementById('payable-amount-display').textContent  = payable.toFixed(2) + ' ৳';
@@ -622,75 +615,10 @@ function validateAndSubmitPayment() {
     }
 }
 
-=======
-
-    document.getElementById('discount-amount-display').textContent = discountAmt.toFixed(2) + ' ৳';
-    document.getElementById('payable-amount-display').textContent  = payable.toFixed(2) + ' ৳';
-    document.getElementById('hidden-discount-value').value  = val;
-
-    calcChange(payable);
-}
-
-function calcChange(payableOverride) {
-    var payable  = payableOverride !== undefined ? payableOverride
-                 : parseFloat(document.getElementById('payable-amount-display').textContent) || 0;
-    var received = parseFloat(document.getElementById('amount-received-input').value) || 0;
-    document.getElementById('hidden-amount-received').value = received;
-
-    var change = received - payable;
-    var changeRow = document.getElementById('change-row');
-    var changeDisplay = document.getElementById('change-display');
-
-    if (change >= 0) {
-        changeDisplay.textContent = change.toFixed(2) + ' ৳';
-        changeRow.style.background = '#eafaf1';
-        changeDisplay.style.color = '#27ae60';
-    } else {
-        changeDisplay.textContent = '⚠ Short: ' + Math.abs(change).toFixed(2) + ' ৳';
-        changeRow.style.background = '#fef9e7';
-        changeDisplay.style.color = '#e67e22';
-    }
-}
-
-document.getElementById('amount-received-input').addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') {
-        e.preventDefault(); // পেজ রিফ্রেশ হওয়া আটকাবে
-        
-        // আপনার 'Confirm Payment & Settle' বাটনের আইডি অনুযায়ী এটি কাজ করবে
-        confirmPayment(); 
-    }
-});
-
-function confirmPayment() {
-    // এখানে আপনার বর্তমান পেমেন্ট সাবমিট করার লজিক থাকবে
-    // উদাহরণস্বরূপ:
-    document.getElementById('confirm-payment-btn').click();
-}
-// Form submit validation
-document.getElementById('payment-confirm-form').addEventListener('submit', function(e) {
-    var received = parseFloat(document.getElementById('amount-received-input').value) || 0;
-    var payable  = parseFloat(document.getElementById('payable-amount-display').textContent) || 0;
-    if (received <= 0) {
-        e.preventDefault();
-        alert('⚠ Please enter the amount received.');
-        return;
-    }
-    if (received < payable) {
-        if (!confirm('⚠ Amount received is less than payable. Confirm partial payment?')) {
-            e.preventDefault();
-        }
-    }
-});
-
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 function printReceipt() {
     window.print();
 }
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 function showToastPopup(message) {
     var toast = document.getElementById('qrrs-toast-success');
     var msgSpan = document.getElementById('toast-message');
@@ -698,21 +626,11 @@ function showToastPopup(message) {
     msgSpan.textContent = message;
     toast.style.display = 'flex';
 
-<<<<<<< HEAD
     setTimeout(function() {
         toast.style.animation = 'slideOutRight 0.4s ease-in forwards';
         setTimeout(function() {
             toast.style.display = 'none';
             toast.style.animation = 'slideInRight 0.4s ease-out'; 
-=======
-    // ৩ সেকেন্ড পর অটোমেটিক চলে যাবে
-    setTimeout(function() {
-        toast.style.animation = 'slideOutRight 0.4s ease-in forwards';
-        // অ্যানিমেশন শেষ হলে ডিসপ্লে হাইড করবে
-        setTimeout(function() {
-            toast.style.display = 'none';
-            toast.style.animation = 'slideInRight 0.4s ease-out'; // রিসেট
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         }, 400);
     }, 3000);
 }

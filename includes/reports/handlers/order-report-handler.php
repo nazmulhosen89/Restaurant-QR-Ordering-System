@@ -78,29 +78,17 @@ function handle_fetch_order_report() {
                 <h3 style="margin:5px 0 0; font-size:26px;"><?php echo $g_total; ?></h3>
             </div>
             <div style="background:#fff; border:2px solid #10b981; padding:20px; border-radius:12px;">
-<<<<<<< HEAD
                 <span style="font-size: 10px; font-weight: 700;  color: #10b981;  text-transform: uppercase; float: left; width:100%; line-height: 1.5em;"><i class="far fa-check-circle"></i> Completed</span>
-=======
-                <span style="font-size:10px; font-weight:700; color:#10b981; text-transform:uppercase;">✅ Completed</span>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                 <h3 style="margin:5px 0 0; color:#1e293b;"><?php echo $g_completed; ?></h3>
                 <small style="color:#64748b;"><?php echo $g_total > 0 ? round(($g_completed/$g_total)*100,1) : 0; ?>%</small>
             </div>
             <div style="background:#fff; border:2px solid #ef4444; padding:20px; border-radius:12px;">
-<<<<<<< HEAD
                 <span style="font-size:10px; font-weight:700; color:#ef4444; text-transform:uppercase;float: left; width:100%; line-height: 1.5em;"><i class="fas fa-times"></i> Cancelled</span>
-=======
-                <span style="font-size:10px; font-weight:700; color:#ef4444; text-transform:uppercase;">❌ Cancelled</span>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                 <h3 style="margin:5px 0 0; color:#1e293b;"><?php echo $g_cancelled; ?></h3>
                 <small style="color:#64748b;"><?php echo $g_total > 0 ? round(($g_cancelled/$g_total)*100,1) : 0; ?>%</small>
             </div>
             <div style="background:#fff; border:2px solid #f59e0b; padding:20px; border-radius:12px;">
-<<<<<<< HEAD
                 <span style="font-size:10px; font-weight:700; color:#f59e0b; text-transform:uppercase;float: left; width:100%; line-height: 1.5em;"><i class="fas fa-hourglass-start"></i> Pending</span>
-=======
-                <span style="font-size:10px; font-weight:700; color:#f59e0b; text-transform:uppercase;">⏳ Pending</span>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                 <h3 style="margin:5px 0 0; color:#1e293b;"><?php echo $g_pending; ?></h3>
                 <small style="color:#64748b;"><?php echo $g_total > 0 ? round(($g_pending/$g_total)*100,1) : 0; ?>%</small>
             </div>
@@ -277,19 +265,11 @@ function handle_fetch_order_report() {
                 <h3 style="margin:5px 0 0; color:#1e293b;"><?php echo $currency . number_format($g_revenue, 2); ?></h3>
             </div>
             <div style="background:#fff; border:2px solid #10b981; padding:20px; border-radius:12px;">
-<<<<<<< HEAD
                 <span style="font-size:10px; font-weight:700; color:#10b981; text-transform:uppercase;float: left;width: 100%;line-height: 1.6em;"><i class="fas fa-arrow-up"></i> Highest Order</span>
                 <h3 style="margin:5px 0 0; color:#1e293b;"><?php echo $currency . number_format($g_max, 2); ?></h3>
             </div>
             <div style="background:#fff; border:2px solid #ef4444; padding:20px; border-radius:12px;">
                 <span style="font-size:10px; font-weight:700; color:#ef4444; text-transform:uppercase;float: left;width: 100%;line-height: 1.6em;"><i class="fas fa-arrow-down"></i> Lowest Order</span>
-=======
-                <span style="font-size:10px; font-weight:700; color:#10b981; text-transform:uppercase;">↑ Highest Order</span>
-                <h3 style="margin:5px 0 0; color:#1e293b;"><?php echo $currency . number_format($g_max, 2); ?></h3>
-            </div>
-            <div style="background:#fff; border:2px solid #ef4444; padding:20px; border-radius:12px;">
-                <span style="font-size:10px; font-weight:700; color:#ef4444; text-transform:uppercase;">↓ Lowest Order</span>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                 <h3 style="margin:5px 0 0; color:#1e293b;"><?php echo $currency . number_format($g_min, 2); ?></h3>
             </div>
         </div>
@@ -459,16 +439,11 @@ function handle_fetch_order_report() {
         <!-- Summary Cards -->
         <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:15px; margin-bottom:25px;">
             <div style="background:#1e293b; color:#fff; padding:20px; border-radius:12px;">
-<<<<<<< HEAD
                 <span style="font-size:10px; opacity:0.7; text-transform:uppercase;float: left;width: 100%;line-height: 1.6em;"><i class="fas fa-fire-alt"></i> Peak Hour</span>
-=======
-                <span style="font-size:10px; opacity:0.7; text-transform:uppercase;">🔥 Peak Hour</span>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                 <h3 style="margin:5px 0 0; color:#f59e0b; font-size:18px;"><?php echo $peak_label; ?></h3>
                 <small style="opacity:0.7;"><?php echo $peak_hour->total_orders; ?> orders in this hour</small>
             </div>
             <div style="background:#fff; border:2px solid #f97316; padding:20px; border-radius:12px;">
-<<<<<<< HEAD
                 <span style="font-size:10px; font-weight:700; color:#f97316; text-transform:uppercase;float: left;width: 100%;line-height: 1.6em;"><i class="fas fa-cloud-sun"></i> Morning (6–12)</span>
                 <h3 style="margin:5px 0 0; color:#1e293b;"><?php echo $m_orders; ?> <span style="font-size:13px; color:#64748b;">orders</span></h3>
             </div>
@@ -478,17 +453,6 @@ function handle_fetch_order_report() {
             </div>
             <div style="background:#fff; border:2px solid #8b5cf6; padding:20px; border-radius:12px;">
                 <span style="font-size:10px; font-weight:700; color:#8b5cf6; text-transform:uppercase;float: left;width: 100%;line-height: 1.6em;"><i class="far fa-moon"></i> Evening (18–24)</span>
-=======
-                <span style="font-size:10px; font-weight:700; color:#f97316; text-transform:uppercase;">🌅 Morning (6–12)</span>
-                <h3 style="margin:5px 0 0; color:#1e293b;"><?php echo $m_orders; ?> <span style="font-size:13px; color:#64748b;">orders</span></h3>
-            </div>
-            <div style="background:#fff; border:2px solid #3b82f6; padding:20px; border-radius:12px;">
-                <span style="font-size:10px; font-weight:700; color:#3b82f6; text-transform:uppercase;">☀️ Afternoon (12–18)</span>
-                <h3 style="margin:5px 0 0; color:#1e293b;"><?php echo $a_orders; ?> <span style="font-size:13px; color:#64748b;">orders</span></h3>
-            </div>
-            <div style="background:#fff; border:2px solid #8b5cf6; padding:20px; border-radius:12px;">
-                <span style="font-size:10px; font-weight:700; color:#8b5cf6; text-transform:uppercase;">🌙 Evening (18–24)</span>
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                 <h3 style="margin:5px 0 0; color:#1e293b;"><?php echo $e_orders; ?> <span style="font-size:13px; color:#64748b;">orders</span></h3>
             </div>
         </div>
@@ -611,10 +575,6 @@ function handle_fetch_order_report() {
 
     wp_send_json_error('Invalid report type.');
 }
-<<<<<<< HEAD
 add_action('wp_ajax_fetch_order_report', 'handle_fetch_order_report');
 
 
-=======
-add_action('wp_ajax_fetch_order_report', 'handle_fetch_order_report');
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da

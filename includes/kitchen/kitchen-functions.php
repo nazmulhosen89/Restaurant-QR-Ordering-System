@@ -21,7 +21,6 @@ function handle_fetch_kitchen_orders() {
     $restaurant_id = $staff ? intval($staff->restaurant_id) : 0;
     if (!$restaurant_id) { wp_send_json_error('No restaurant assigned'); }
 
-<<<<<<< HEAD
     /**
      * ✨ FIX: হার্ডকোডেড কারেন্ট টাইমের জায়গায় ওয়ার্ডপ্রেস সেটিংসের 
      * ডাইনামিক লোকাল টাইমজোন (যেমন: Asia/Dhaka) ব্যবহার করা।
@@ -32,10 +31,6 @@ function handle_fetch_kitchen_orders() {
     // আজকের দিনের শুরু এবং শেষ একদম লোকাল টাইম (সকাল ০০:০০ থেকে রাত ২৩:৫৯) অনুযায়ী ফিক্সড
     $today_start = $local_now->format('Y-m-d 00:00:00');
     $today_end   = $local_now->format('Y-m-d 23:59:59');
-=======
-    $today_start = current_time('Y-m-d 00:00:00');
-    $today_end   = current_time('Y-m-d 23:59:59');
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
 
     // Stats
     $stats_raw = $wpdb->get_row($wpdb->prepare("
@@ -99,39 +94,6 @@ function handle_fetch_kitchen_orders() {
             if ($item->item_status === 'processing') {
                 $has_processing = true;
             }
-<<<<<<< HEAD
-=======
-        }
-
-        if ($has_pending && $all_pending_are_beverages) {
-            // ✅ শুধু Beverages pending → সরাসরি Mark as Ready (cooking step skip)
-            $next_status = 'ready';
-            $btn_label   = '✅ Mark as Ready';
-            $btn_class   = 'btn-done';
-        } elseif ($has_pending) {
-            // অন্য category pending → Start Cooking
-            $next_status = 'processing';
-            $btn_label   = '🔥 Start Cooking';
-            $btn_class   = 'btn-start';
-        } else {
-            // সব items processing → Mark as Ready
-            $next_status = 'ready';
-            $btn_label   = '✅ Mark as Ready';
-            $btn_class   = 'btn-done';
-        }
-
-        // Items structured array
-        $items_data = [];
-        foreach ($items as $item) {
-            $items_data[] = [
-                'name'          => $item->item_name,
-                'qty'           => intval($item->quantity),
-                'item_type'     => $item->item_type,
-                'item_status'   => $item->item_status,
-                'variant'       => $item->variants_selected ?? '',
-                'category_name' => $item->category_name,
-            ];
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         }
 
         if ($has_pending && $all_pending_are_beverages) {
@@ -176,11 +138,7 @@ function handle_fetch_kitchen_orders() {
             'id'          => $order->id,
             'table_name'  => esc_html($order->table_name),
             'raw_status'  => $order->raw_status,
-<<<<<<< HEAD
             'time_ago'    => $time_diff_text, // 👈 ফিক্সড করা লোকাল ভ্যারিয়েবল পাস করা হলো
-=======
-            'time_ago'    => human_time_diff(strtotime($order->created_at), current_time('timestamp')) . ' ago',
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             'next_status' => $next_status,
             'btn_label'   => $btn_label,
             'btn_class'   => $btn_class,
