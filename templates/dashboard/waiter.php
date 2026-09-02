@@ -23,18 +23,14 @@ $current_waiter_id = get_current_user_id();
 $current_tab       = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'terminal';
 
 
-/**
- * ✨ FIX: Pure Local Timezone and Dynamic "Today" bounds setting based on Local Device/WordPress configurations
- */
+
 $wp_timezone = wp_timezone();
 $local_now   = new DateTime('now', $wp_timezone);
 
-// Ajker shokal 00:00:00 theke rat 23:59:59 (Pure Business Local Date boundaries)
 $local_today_start = $local_now->format('Y-m-d 00:00:00');
 $local_today_end   = $local_now->format('Y-m-d 23:59:59');
 
 
-// ১. স্ট্যাটাস কুয়েরি (Updated query with local dynamic timezone tracking)
 $stats = $wpdb->get_row($wpdb->prepare("
     SELECT 
         COUNT(id) AS resto_total,
@@ -50,7 +46,6 @@ $stats = $wpdb->get_row($wpdb->prepare("
 ", $current_waiter_id, $current_waiter_id, $current_waiter_id, $current_waiter_id, $current_waiter_id, $user_res_id, $local_today_start, $local_today_end));
 
 
-// ২. ফ্লোর প্ল্যানের জন্য কুয়েরি (Updated interval check to strict local device date bounds)
 $tables_data = $wpdb->get_results($wpdb->prepare("
     SELECT t.*, 
         o.order_status, 
@@ -70,7 +65,6 @@ $tables_data = $wpdb->get_results($wpdb->prepare("
 ", $user_res_id, $local_today_start, $local_today_end, $user_res_id));
 
 
-// ৩. অপারেশনাল টাস্কের জন্য আলাদা কুয়েরি
 $where_clause = "AND (o.waiter_id = $current_waiter_id OR o.waiter_id = 0)";
 if ( current_user_can('administrator') ) {
     $where_clause = ""; 
@@ -134,6 +128,7 @@ $has_item_type = in_array('item_type', $item_cols);
                 </div>
 
                 <div id="user-dropdown" class="u-drop-premium">
+                    <a href="?tab=requisition"><span>INV</span> Requisition</a>
                     <a href="?tab=profile"><span>👤</span> Profile Settings</a>
                     <a href="?tab=terminal"><span>📊</span> My Performance</a>
                     <hr style="border:0; border-top:1px solid rgba(255,255,255,0.05); margin:5px 0;">
@@ -151,6 +146,12 @@ $has_item_type = in_array('item_type', $item_cols);
             if ( file_exists( $profile_path ) ) include $profile_path;
             ?>
         </div>
+    <?php elseif ( $current_tab == 'requisition' ): ?>
+        <?php
+        if ( function_exists( 'qrrs_inventory_render_requisition_panel' ) ) {
+            qrrs_inventory_render_requisition_panel( 'waiter' );
+        }
+        ?>
     <?php else: ?>
     <div class="ultra-stats-grid">
         <div class="u-stat-card"><div class="s-icon">🏢</div><div class="s-info"><span>Resto. Total</span><strong><?php echo intval($stats->resto_total); ?></strong></div></div>
@@ -244,7 +245,6 @@ $has_item_type = in_array('item_type', $item_cols);
                     <span class="task-table">
                         <?php echo esc_html($order->table_name); ?>
                         <?php 
-                        // ✨ Dynamic Local Time based Calculation for "NEW" tag pulse
                         $order_time = strtotime($order->created_at);
                         $current_local_time = $local_now->getTimestamp(); // Database object timestamp integration
                         if (($current_local_time - $order_time) < 300): 
@@ -356,10 +356,8 @@ $has_item_type = in_array('item_type', $item_cols);
                     <?php
                     if (!empty($tables_data)) :
                         foreach ($tables_data as $t):
-                            // Check korchi table occupied kina
                             $is_occupied = !empty($t->active_order_id);
                             
-                            // Occupied hole ekti alada CSS class dibo jeno design alada kora jay, ebong style diye opacity drop o pointer-events disable korbo
                             $box_class = $is_occupied ? 'v-table-box occupied-table' : 'v-table-box vacant-table';
                             $onclick_attr = !$is_occupied ? 'onclick="selectTable(\''.esc_js($t->table_name).'\')"' : '';
                             $style_attr = $is_occupied ? 'style="opacity: 0.55; cursor: not-allowed; border: 1px dashed #ef4444;"' : 'style="cursor: pointer;"';
@@ -610,13 +608,11 @@ $has_item_type = in_array('item_type', $item_cols);
         }
         
         if (mode === 'new' && !tableName) {
-            // জাভাস্ক্রিপ্ট সরাসরি স্ক্রিনের মেইন 'floor-grid' থেকে রিয়েল-টাইম ভ্যাক্যান্ট টেবিল রিড করে মডালে ইনসার্ট করবে
             let vacantGridHtml = '';
             let foundVacant = false;
 
             $('.floor-grid .floor-table').each(function(){
                 let $tableEl = $(this);
-                // শুধুমাত্র যে টেবিলগুলো স্ক্রিনে 'is-free' (সবুজ/ফ্রি) আছে, সেগুলোকে মডালে নিয়ে যাবে
                 if ($tableEl.hasClass('is-free')) {
                     foundVacant = true;
                     let name = $tableEl.find('.table-name').text().trim();

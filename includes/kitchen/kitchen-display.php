@@ -63,13 +63,11 @@ function qrrs_render_kitchen_display($restaurant_id) {
     </style>
 
     <script>
-        // Real-time Clock
         setInterval(() => {
             const now = new Date();
             document.getElementById('kitchen-clock').innerText = now.toLocaleTimeString();
         }, 1000);
 
-        // Sound Activation (Browser Security handle)
         document.getElementById('startKitchenBtn').addEventListener('click', function() {
             const audio = document.getElementById('orderNotificationSound');
             audio.play().then(() => {

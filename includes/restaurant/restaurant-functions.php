@@ -1,13 +1,8 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-/**
- * Restaurant Management Functions
- */
 
-/**
- * 1. Naya Restaurant Create Kora
- */
+
 function qrrs_create_restaurant( $data ) {
     global $wpdb;
     $table_name = $wpdb->prefix . 'qrrs_restaurants';
@@ -18,8 +13,8 @@ function qrrs_create_restaurant( $data ) {
             'owner_id'               => get_current_user_id(),
             'restaurant_name'        => sanitize_text_field( $data['res_name'] ),
             'restaurant_logo'        => esc_url_raw( $data['res_logo'] ),
-            'phone'                  => sanitize_text_field( $data['res_phone'] ), // New Field
-            'bin_number'             => sanitize_text_field( $data['res_bin'] ),   // New Field
+            'phone'                  => sanitize_text_field( $data['res_phone'] ),
+            'bin_number'             => sanitize_text_field( $data['res_bin'] ),  
             'address'                => sanitize_textarea_field( $data['res_address'] ),
             'currency_symbol'        => sanitize_text_field( $data['currency'] ),
             'tax_percent'            => floatval( $data['tax'] ),
@@ -32,9 +27,7 @@ function qrrs_create_restaurant( $data ) {
     return $inserted ? $wpdb->insert_id : false;
 }
 
-/**
- * 2. Restaurant Settings Update Kora
- */
+
 function qrrs_update_restaurant_settings( $restaurant_id, $data ) {
     global $wpdb;
     $table_name = $wpdb->prefix . 'qrrs_restaurants';
@@ -44,8 +37,8 @@ function qrrs_update_restaurant_settings( $restaurant_id, $data ) {
         [
             'restaurant_name'        => sanitize_text_field( $data['res_name'] ),
             'restaurant_logo'        => esc_url_raw( $data['res_logo'] ),
-            'phone'                  => sanitize_text_field( $data['res_phone'] ), // New Field
-            'bin_number'             => sanitize_text_field( $data['res_bin'] ),   // New Field
+            'phone'                  => sanitize_text_field( $data['res_phone'] ), 
+            'bin_number'             => sanitize_text_field( $data['res_bin'] ),  
             'address'                => sanitize_textarea_field( $data['res_address'] ),
             'currency_symbol'        => sanitize_text_field( $data['currency'] ),
             'tax_percent'            => floatval( $data['tax'] ),
@@ -57,18 +50,14 @@ function qrrs_update_restaurant_settings( $restaurant_id, $data ) {
     return $updated !== false;
 }
 
-/**
- * 3. Single Restaurant Data Fetch Kora
- */
+
 function qrrs_get_restaurant( $id ) {
     global $wpdb;
     $table_name = $wpdb->prefix . 'qrrs_restaurants';
     return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table_name WHERE id = %d", $id ) );
 }
 
-/**
- * 4. All Restaurants List (For Super Admin/Owner)
- */
+
 function qrrs_get_all_restaurants( $owner_id = null ) {
     global $wpdb;
     $table_name = $wpdb->prefix . 'qrrs_restaurants';
@@ -80,44 +69,34 @@ function qrrs_get_all_restaurants( $owner_id = null ) {
     return $wpdb->get_results( "SELECT * FROM $table_name ORDER BY id DESC" );
 }
 
-/**
- * 5. Restaurant Delete Kora
- */
+
 function qrrs_delete_restaurant( $id ) {
     global $wpdb;
     $table_name = $wpdb->prefix . 'qrrs_restaurants';
     
-    // Prothome check korte hobe user er delete korar permission ache kina
     return $wpdb->delete( $table_name, [ 'id' => $id ] );
 }
 
-/**
- * 6. Active Restaurant ID session/meta theke neya
- * (Eta kaje lagbe jokhon staff login korbe)
- */
+
 function qrrs_get_current_active_restaurant_id() {
     $user_id = get_current_user_id();
-    // User meta-te restaurant_id store kora thakbe login er somoy
     return get_user_meta( $user_id, 'active_restaurant_id', true );
 }
 
 
 
 function qrrs_create_staff($data) {
-    // ১. ইউজার তৈরি করা (WordPress Default)
     $user_id = wp_create_user( 
-        sanitize_title($data['staff_name']) . '_' . rand(10, 99), // Username auto-gen
-        '123456', // Default Password (পরে তারা চেঞ্জ করতে পারবে)
-        sanitize_title($data['staff_name']) . '@restaurant.com' // Dummy Email
+        sanitize_title($data['staff_name']) . '_' . rand(10, 99), 
+        '123456', 
+        sanitize_title($data['staff_name']) . '@restaurant.com' 
     );
 
     if ( is_wp_error( $user_id ) ) return false;
 
-    // ২. Role সেট করা
     $user = new WP_User( $user_id );
     $user->set_role( $data['staff_role'] );
 
-    // ৩. মেটা ডেটা সেভ করা
     update_user_meta( $user_id, 'staff_photo', esc_url_raw( $data['staff_photo'] ) );
     update_user_meta( $user_id, 'staff_nid_front', esc_url_raw( $data['nid_front'] ) );
     update_user_meta( $user_id, 'staff_nid_back', esc_url_raw( $data['nid_back'] ) );

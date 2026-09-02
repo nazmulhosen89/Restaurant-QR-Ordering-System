@@ -16,14 +16,10 @@ function handle_fetch_all_orders_dashboard() {
     $restaurant_id = isset($_POST['restaurant_id']) ? intval($_POST['restaurant_id']) : 0;
     if ( ! $restaurant_id ) wp_send_json_error('No restaurant ID');
 
-    /**
-     * ✨ FIX: লোকাল ডিভাইস বা সঠিক লোকাল টাইমজোন হ্যান্ডেল করা
-     * ওয়ার্ডপ্রেস সেটিংসের টাইমজোন অবজেক্ট ধরে কারেন্ট লোকাল টাইম জেনারেট করা।
-     */
+
     $wp_timezone = wp_timezone();
     $local_now   = new DateTime('now', $wp_timezone);
     
-    // আজকের দিনের শুরু এবং শেষ একদম লোকাল টাইম (যেমন: সকাল ০৬:১৯) অনুযায়ী ফিক্সড
     $today_start = $local_now->format('Y-m-d 00:00:00');
     $today_end   = $local_now->format('Y-m-d 23:59:59');
 
@@ -69,9 +65,7 @@ function handle_fetch_all_orders_dashboard() {
             ];
         }
 
-        /**
-         * ✨ FIX: কতক্ষণ আগে অর্ডার করা হয়েছে (time_ago) সেটিও লোকাল টাইমের সাপেক্ষে নিখুঁত করা
-         */
+        
         $order_timestamp = strtotime($order->created_at);
         $current_local_timestamp = $local_now->getTimestamp();
         $time_diff_text = human_time_diff($order_timestamp, $current_local_timestamp) . ' ago';

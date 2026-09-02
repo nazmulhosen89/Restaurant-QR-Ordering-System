@@ -12,11 +12,8 @@ function get_qrrs_active_restaurant_name() {
     $restaurant_id = 0;
 
     if ( current_user_can('administrator') ) {
-        // Admin-er jonno session theke active restaurant ID neya
         $restaurant_id = isset( $_SESSION['qrrs_active_res_id'] ) ? intval( $_SESSION['qrrs_active_res_id'] ) : 0;
     } else {
-        // Normal user-er jonno custom 'rest_qrrs_staff' table theke restaurant_id fetch kora
-        // Note: rest_ prefix-ti jodi wp_ prefix hoy, tobe $wpdb->prefix use kora bhalo
         $staff_table = $wpdb->prefix . 'qrrs_staff'; 
         
         $restaurant_id = $wpdb->get_var( $wpdb->prepare(
@@ -28,7 +25,6 @@ function get_qrrs_active_restaurant_name() {
     if ( $restaurant_id > 0 ) {
         $res_table = $wpdb->prefix . 'qrrs_restaurants';
         
-        // Restaurant-er nam fetch kora
         $restaurant_name = $wpdb->get_var( $wpdb->prepare(
             "SELECT restaurant_name FROM $res_table WHERE id = %d", 
             $restaurant_id
@@ -67,5 +63,5 @@ function get_qrrs_restaurant_currency($restaurant_id) {
         $restaurant_id
     ));
 
-    return $symbol ? $symbol : '$'; // Default $ jodi symbol na thake
+    return $symbol ? $symbol : '$'; 
 }

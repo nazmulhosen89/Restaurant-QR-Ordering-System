@@ -22,7 +22,7 @@ if (!$active_res_id) {
     return;
 }
 
-// --- ১. পেমেন্ট কমপ্লিট করার লজিক (সঠিক ক্রমে সাজানো) ---
+
 if ( isset($_POST['complete_order_id']) ) {
     $order_to_complete  = intval($_POST['complete_order_id']);
     $discount_type      = sanitize_text_field($_POST['discount_type'] ?? 'none');
@@ -30,7 +30,7 @@ if ( isset($_POST['complete_order_id']) ) {
     $payment_method     = sanitize_text_field($_POST['payment_method'] ?? 'cash');
     $amount_received    = floatval($_POST['amount_received'] ?? 0);
 
-    // ১. প্রথমে ডাটাবেস থেকে অরিজিনাল গ্র্যান্ড টোটাল নিয়ে আসতে হবে
+
     $orig_order = $wpdb->get_row($wpdb->prepare(
         "SELECT grand_total FROM $orders_table WHERE id = %d AND restaurant_id = %d",
         $order_to_complete, $active_res_id
@@ -40,7 +40,7 @@ if ( isset($_POST['complete_order_id']) ) {
         $grand_total     = floatval($orig_order->grand_total);
         $discount_amount = 0;
 
-        // ২. ডিসকাউন্ট ক্যালকুলেশন
+
         if ($discount_type === 'percent') {
             $discount_value  = min(max($discount_value, 0), 100);
             $discount_amount = round($grand_total * $discount_value / 100, 2);
@@ -48,19 +48,15 @@ if ( isset($_POST['complete_order_id']) ) {
             $discount_amount = min(max($discount_value, 0), $grand_total);
         }
 
-        // ৩. ফাইনাল পেয়াবল অ্যামাউন্ট (এটিই আসল বিল)
         $final_total = round($grand_total - $discount_amount, 2);
 
-        // ৪. ফেরত টাকার হিসাব (কাস্টমার বেশি দিলে)
         $cash_returned = 0;
         if ($amount_received > $final_total) {
             $cash_returned = $amount_received - $final_total;
         }
 
-        // ৫. কালেকশনে কত টাকা জমা হবে (বিলের সমান, অতিরিক্তটা তো ফেরত দেওয়া হয়েছে)
         $actual_collection = ($amount_received > $final_total) ? $final_total : $amount_received;
 
-        // ৬. ডাটাবেস আপডেট
         $wpdb->update(
             $orders_table,
             array(
@@ -69,14 +65,13 @@ if ( isset($_POST['complete_order_id']) ) {
                 'discount_amount' => $discount_amount,
                 'final_total'     => $final_total,
                 'payment_method'  => $payment_method,
-                'amount_received' => $amount_received, // কাস্টমার কত দিয়েছিল তার রেকর্ড
-                'cash_returned'   => $cash_returned,  // কত ফেরত দিলেন তার রেকর্ড
+                'amount_received' => $amount_received, 
+                'cash_returned'   => $cash_returned,  
             ),
             array('id' => $order_to_complete, 'restaurant_id' => $active_res_id),
             array('%s', '%s', '%f', '%f', '%s', '%f', '%f'), 
             array('%d', '%d')
         );
-        // echo "<div class='success-msg'>✅ Payment collected via " . esc_html(ucfirst($payment_method)) . "! Order settled.</div>";
 
         ?>
     <script>
@@ -89,7 +84,6 @@ if ( isset($_POST['complete_order_id']) ) {
     }
 }
 
-// --- ২. স্ট্যাটস ক্যালকুলেশন ---
 $billing_stats = $wpdb->get_row($wpdb->prepare("
     SELECT 
         COUNT(id) as total_orders,
@@ -100,7 +94,6 @@ $billing_stats = $wpdb->get_row($wpdb->prepare("
     FROM $orders_table 
     WHERE restaurant_id = %d AND DATE(created_at) = %s", $active_res_id, $today));
 
-// --- ৩. অর্ডার লিস্ট ---
 $settle_orders = $wpdb->get_results($wpdb->prepare(
     "SELECT id, table_name, grand_total, created_at, order_status 
     FROM $orders_table 
@@ -204,7 +197,6 @@ $selected_order_id = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
                     </div>
 
                     <?php 
-                        // মূল গ্র্যান্ড টোটাল এবং রাউন্ড ফিগার ক্যালকুলেশন
                         $original_grand = $order->grand_total; 
                         $rounded_grand  = round($original_grand); 
                         $adjustment     = $rounded_grand - $original_grand; 
@@ -215,21 +207,18 @@ $selected_order_id = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
                             <span>Subtotal</span><span><?php echo number_format($order->total_amount, 2); ?> ৳</span>
                         </div>
                         
-                        <!-- VAT আলাদা দেখানো হলো -->
                         <?php if ($order->tax_amount > 0): ?>
                         <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#666;">
                             <span>VAT</span><span><?php echo number_format($order->tax_amount, 2); ?> ৳</span>
                         </div>
                         <?php endif; ?>
 
-                        <!-- Service Charge আলাদা দেখানো হলো -->
                         <?php if ($order->service_charge > 0): ?>
                         <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#666;">
                             <span>Service Charge</span><span><?php echo number_format($order->service_charge, 2); ?> ৳</span>
                         </div>
                         <?php endif; ?>
 
-                        <!-- Adjustment লাইন -->
                         <div style="display:flex; justify-content:space-between; margin-bottom:6px; color:#666; font-style: italic;">
                             <span>Adjustment (<?php echo ($adjustment >= 0) ? '+' : '-'; ?>)</span>
                             <span><?php echo number_format(abs($adjustment), 2); ?> ৳</span>
@@ -241,7 +230,6 @@ $selected_order_id = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
                         </div>
                     </div>
 
-                    <!-- ✅ নতুন: COMPLETE বাটন এখন popup খুলবে -->
                     <button type="button"
                         onclick="openPaymentModal(<?php echo $selected_order_id; ?>, <?php echo floatval($order->grand_total); ?>, '<?php echo esc_js($full_invoice_no); ?>', '<?php echo esc_js($order->table_name); ?>')"
                         style="width:100%; height:55px; background:#2ecc71; border:none; color:white; font-size:18px; font-weight:bold; border-radius:8px; cursor:pointer; margin-top:20px; transition:0.3s;">
@@ -308,7 +296,6 @@ $selected_order_id = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
                             </div>
                         <?php endif; ?>
 
-                        <!-- রাউন্ড অ্যাডজাস্টমেন্ট -->
                         <div style="display:flex; justify-content:space-between; font-style: italic;">
                             <span>Adjustment:</span>
                             <span><?php echo ($adjustment >= 0 ? '+' : '-') . number_format(abs($adjustment), 2); ?></span>
@@ -441,14 +428,12 @@ var _discountType  = 'percent';
 var _paymentMethod = 'cash';
 
 function openPaymentModal(orderId, grandTotal, invNo, tableName) {
-    // এখানে grandTotal কে প্রথমেই রাউন্ড করে নেওয়া হচ্ছে
     _grandTotal    = Math.round(grandTotal); 
     _discountType  = 'percent';
     _paymentMethod = 'cash';
 
     document.getElementById('modal-inv-label').textContent = 'Invoice ' + invNo + ' — ' + tableName;
     
-    // ডিসপ্লেতেও রাউন্ড ফিগার দেখানো হচ্ছে
     document.getElementById('modal-grand-display').textContent = _grandTotal.toFixed(2) + ' ৳';
     
     document.getElementById('hidden-order-id').value = orderId;
@@ -466,7 +451,6 @@ function closePaymentModal() {
     document.getElementById('qrrs-payment-modal').style.display = 'none';
 }
 
-// Close on backdrop click
 document.getElementById('qrrs-payment-modal').addEventListener('click', function(e) {
     if (e.target === this) closePaymentModal();
 });
@@ -523,8 +507,7 @@ function recalculate() {
         discountAmt = val;
     }
 
-    // ১. প্রথমে রাউন্ড করা
-    // ২. তারপর ২ দশমিক (.00) পর্যন্ত দেখানো
+    
     var payable = Math.round(_grandTotal - discountAmt);
 
     document.getElementById('discount-amount-display').textContent = discountAmt.toFixed(2) + ' ৳';
@@ -554,7 +537,6 @@ function calcChange(payableOverride) {
         changeDisplay.style.color = '#e67e22';
     }
 }
-// Global variable to keep track of confirmation callback
 var confirmCallback = null;
 
 function showCustomAlert(message) {
@@ -583,7 +565,6 @@ function closeCustomConfirm(isConfirmed) {
     confirmCallback = null;
 }
 
-// Enter Key handler for Amount Received Input
 document.getElementById('amount-received-input').addEventListener('keypress', function (e) {
     if (e.key === 'Enter') {
         e.preventDefault(); 
@@ -591,9 +572,8 @@ document.getElementById('amount-received-input').addEventListener('keypress', fu
     }
 });
 
-// Intercept Button Click to enforce our custom validation
 document.getElementById('confirm-payment-btn').addEventListener('click', function(e) {
-    e.preventDefault(); // Default submit আটকালাম কাস্টম ভ্যালিডেশনের জন্য
+    e.preventDefault(); 
     validateAndSubmitPayment();
 });
 

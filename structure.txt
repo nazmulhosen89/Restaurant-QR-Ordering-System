@@ -1,30 +1,40 @@
+﻿Folder PATH listing for volume New Volume
+Volume serial number is 000000D1 00DA:7766
+D:.
+|   LICENSE
 |   qr-restaurant-system.php
+|   README.md
 |   readme.txt
 |   structure.txt
 |   uninstall.php
 |   
 +---assets
 |   +---css
-|   |       admin.css
 |   |       frontend.css
-|   |       mobile.css
 |   |       
 |   +---images
-|   \---js
-|           app.js
-|           cart.js
-|           reports.js
-|           waiter.js
+|   |       BkashQR.jpeg
+|   |       default-cat.png
+|   |       foodtruck-sectionbg1.png
+|   |       restaurant.png
+|   |       table-free.png
+|   |       table-occupied.png
+|   |       
+|   +---js
+|   |       app.js
+|   |       
+|   \---sounds
+|           notification 01.mp3
+|           notification_02.wav
+|           notification_03.mp3
 |           
 +---includes
-|   |   admin-menu.php
 |   |   auth.php
 |   |   database.php
 |   |   helpers.php
 |   |   
 |   +---billing
 |   |       billing-functions.php
-|   |       invoice.php
 |   |       payment.php
 |   |       
 |   +---kitchen
@@ -32,29 +42,51 @@
 |   |       kitchen-functions.php
 |   |       
 |   +---menu
+|   |       category-shortcode.php
 |   |       category.php
 |   |       items.php
 |   |       menu-functions.php
+|   |       public-menu-shortcode.php
 |   |       
 |   +---order
-|   |       cart.php
-|   |       checkout.php
-|   |       order-create.php
 |   |       order-functions.php
-|   |       orders-admin.php
+|   |       take-order.php
 |   |       
 |   +---reports
-|   |       report-functions.php
-|   |       reports.php
-|   |       
+|   |   |   report-functions.php
+|   |   |   reports.php
+|   |   |   
+|   |   +---handlers
+|   |   |       category-wise-handler.php
+|   |   |       item-wise-handler.php
+|   |   |       kitchen-report-handler.php
+|   |   |       order-report-handler.php
+|   |   |       order-type-handler.php
+|   |   |       payment-tax-handler.php
+|   |   |       sales-handler.php
+|   |   |       staff-report-handler.php
+|   |   |       
+|   |   \---sections
+|   |           kitchen.php
+|   |           orders.php
+|   |           overview.php
+|   |           payment.php
+|   |           sales.php
+|   |           staff.php
+|   |           tax.php
+|   |           
 |   +---restaurant
+|   |       add-staff.php
 |   |       restaurant-create.php
 |   |       restaurant-functions.php
 |   |       tables.php
 |   |       
-|   +---subscription
+|   +---subscriptions
 |   |       subscription-functions.php
 |   |       subscription.php
+|   |       
+|   +---user
+|   |       profile.php
 |   |       
 |   \---waiter
 |           waiter-dashboard.php
@@ -72,13 +104,10 @@
     |       waiter.php
     |       
     +---frontend
-    |       cart.php
-    |       checkout.php
+    |       login.php
     |       menu.php
-    |       success.php
     |       
     \---partials
             footer.php
             header.php
-            sidebar.php
             

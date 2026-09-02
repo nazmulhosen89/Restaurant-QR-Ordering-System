@@ -1,7 +1,6 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-// ১. মেনু আইটেম + ক্যাটাগরি
 add_action( 'wp_ajax_qrrs_get_waiter_menu',        'qrrs_get_waiter_menu' );
 add_action( 'wp_ajax_nopriv_qrrs_get_waiter_menu', 'qrrs_get_waiter_menu' );
 function qrrs_get_waiter_menu() {
@@ -43,7 +42,6 @@ function qrrs_get_waiter_menu() {
 }
 
 
-// ২. Edit এর জন্য আগের অর্ডার cart format এ আনা
 add_action('wp_ajax_qrrs_get_order_for_edit', 'qrrs_get_order_for_edit');
 function qrrs_get_order_for_edit() {
     global $wpdb;
@@ -84,7 +82,6 @@ function qrrs_get_order_for_edit() {
 }
 
 
-// ৩. অর্ডার সেভ / এডিট / অ্যাড
 add_action('wp_ajax_qrrs_submit_waiter_order', 'qrrs_submit_waiter_order');
 function qrrs_submit_waiter_order() {
     global $wpdb;
@@ -101,9 +98,12 @@ function qrrs_submit_waiter_order() {
 
     if (empty($items) || !is_array($items)) { wp_send_json_error('Cart is empty!'); return; }
 
-    /**
-     * ✨ FIX: অর্ডার তৈরি করার সময় যেন সম্পূর্ণ সঠিক লোকাল টাইমজোন স্ট্যাম্প পায়
-     */
+    if ( strtolower( trim( $table_name ) ) === 'delivery' && function_exists( 'qrrs_can_use_feature' ) && ! qrrs_can_use_feature( 'delivery' ) ) {
+        wp_send_json_error( 'Delivery orders are available in Pro only.' );
+        return;
+    }
+
+ 
     $wp_timezone = wp_timezone();
     $local_now   = new DateTime('now', $wp_timezone);
     $local_mysql_time = $local_now->format('Y-m-d H:i:s');
@@ -112,13 +112,10 @@ function qrrs_submit_waiter_order() {
 
         if (!$table_name || !$restaurant_id) { wp_send_json_error('Missing info.'); return; }
 
-        /**
-         * ✨ ULTIMATE FIX: MySQL বা সার্ভারের নিজস্ব টাইমজোনকে বাইপাস করে
-         * সরাসরি আপনার লোকাল ঘড়ির/ডিভাইসের (যেমন: ঢাকা/বাংলাদেশ) কারেন্ট টাইম তৈরি করা।
-         */
-        $wp_timezone     = wp_timezone(); // ওয়ার্ডপ্রেস সেটিংসের জোন (যেমন: Asia/Dhaka)
+
+        $wp_timezone     = wp_timezone(); 
         $local_datetime  = new DateTime('now', $wp_timezone);
-        $exact_local_time = $local_datetime->format('Y-m-d H:i:s'); // এটা আউটপুট দিবে আপনার লোকাল টাইম (সকাল ০৬:১৯:০৪)
+        $exact_local_time = $local_datetime->format('Y-m-d H:i:s'); 
 
         $inserted = $wpdb->insert($wpdb->prefix.'qrrs_orders', [
             'restaurant_id'  => $restaurant_id,
@@ -129,7 +126,7 @@ function qrrs_submit_waiter_order() {
             'grand_total'    => $grand_total,
             'order_status'   => 'pending',
             'payment_status' => 'unpaid',
-            'created_at'     => $exact_local_time, // 👈 এখানে $exact_local_time ভ্যারিয়েবলটি পাস করা হলো
+            'created_at'     => $exact_local_time,             
             'waiter_id'      => get_current_user_id(),
         ]);
         if ($inserted === false) { wp_send_json_error('DB error: '.$wpdb->last_error); return; }
@@ -151,7 +148,6 @@ function qrrs_submit_waiter_order() {
 
     } elseif ($order_mode === 'edit' && $order_id > 0) {
 
-        // প্রথমে frontend থেকে আসা নতুন values দিয়ে update করো
         $wpdb->update($wpdb->prefix.'qrrs_orders', [
             'total_amount'   => $subtotal,
             'tax_amount'     => $tax_amount,
@@ -159,7 +155,6 @@ function qrrs_submit_waiter_order() {
             'grand_total'    => $grand_total,
         ], ['id' => $order_id]);
 
-        // শুধু original items মুছব
         $wpdb->query($wpdb->prepare(
             "DELETE FROM {$wpdb->prefix}qrrs_order_items WHERE order_id = %d AND (item_type = 'original' OR item_type IS NULL OR item_type = '')",
             $order_id
@@ -179,12 +174,10 @@ function qrrs_submit_waiter_order() {
             ]);
         }
 
-        // Items থেকে নতুন subtotal recalculate করো (additional সহ)
         $new_subtotal = floatval($wpdb->get_var($wpdb->prepare(
             "SELECT SUM(price * quantity) FROM {$wpdb->prefix}qrrs_order_items WHERE order_id = %d",
             $order_id
         )));
-        // DB থেকে tax ও sc নাও (এইমাত্র frontend থেকে save হয়েছে)
         $order_charges = $wpdb->get_row($wpdb->prepare(
             "SELECT tax_amount, service_charge FROM {$wpdb->prefix}qrrs_orders WHERE id = %d",
             $order_id
@@ -197,13 +190,11 @@ function qrrs_submit_waiter_order() {
 
     } elseif ($order_mode === 'add' && $order_id > 0) {
 
-        // Additional items insert
         foreach ($items as $item) {
             $item_id  = intval($item['id']);
             $qty      = intval($item['qty']);
             $variants = sanitize_text_field($item['variants_selected'] ?? '');
 
-            // একই additional item আগে থেকে থাকলে qty বাড়াও
             $existing_item = $wpdb->get_row($wpdb->prepare(
                 "SELECT id, quantity FROM {$wpdb->prefix}qrrs_order_items
                  WHERE order_id = %d AND item_id = %d AND item_type = 'additional' AND variants_selected = %s",
@@ -231,19 +222,16 @@ function qrrs_submit_waiter_order() {
             }
         }
 
-        // সব items মিলিয়ে নতুন subtotal বের করো
         $new_subtotal = floatval($wpdb->get_var($wpdb->prepare(
             "SELECT SUM(price * quantity) FROM {$wpdb->prefix}qrrs_order_items WHERE order_id = %d",
             $order_id
         )));
 
-        // DB থেকে আগের tax ও sc আনো
         $order_charges = $wpdb->get_row($wpdb->prepare(
             "SELECT tax_amount, service_charge FROM {$wpdb->prefix}qrrs_orders WHERE id = %d",
             $order_id
         ));
 
-        // পুরনো tax/sc এর সাথে নতুন items এর tax/sc যোগ করো
         $new_tax   = (float)$order_charges->tax_amount   + $tax_amount;   
         $new_sc    = (float)$order_charges->service_charge + $service_charge;
         $new_grand = $new_subtotal + $new_tax + $new_sc;
@@ -266,7 +254,6 @@ function qrrs_submit_waiter_order() {
 }
 
 
-// ৪. অর্ডার স্ট্যাটাস আপডেট
 add_action('wp_ajax_qrrs_update_order_status', 'handle_waiter_status_update');
 function handle_waiter_status_update() {
     global $wpdb;
@@ -288,7 +275,6 @@ function handle_waiter_status_update() {
 }
 
 
-// ৫. item_type column exist না করলে automatically add করা (safe migration)
 add_action('wp_loaded', 'qrrs_maybe_add_item_type_column');
 function qrrs_maybe_add_item_type_column() {
     global $wpdb;
@@ -300,7 +286,6 @@ function qrrs_maybe_add_item_type_column() {
 }
 
 
-// ৬. Notification Polling — waiter dashboard থেকে call হয়
 add_action('wp_ajax_qrrs_waiter_poll', 'qrrs_waiter_poll');
 function qrrs_waiter_poll() {
     global $wpdb;
@@ -308,10 +293,6 @@ function qrrs_waiter_poll() {
     $waiter_id = intval($_POST['waiter_id'] ?? 0);
     if (!$res_id) { wp_send_json_error('Missing res_id'); return; }
 
-    /**
-     * ✨ FIX: CURDATE() এর পরিবর্তে ডাইনামিক লোকাল টাইমজোন বাউন্ড ব্যবহার করা
-     * এর ফলে সার্ভারের টাইম জোনের কারণে সকাল ৬টা পর্যন্ত ডেটা আটকে থাকবে না।
-     */
     $wp_timezone = wp_timezone();
     $local_now   = new DateTime('now', $wp_timezone);
     $local_start = $local_now->format('Y-m-d 00:00:00');
@@ -339,7 +320,6 @@ function qrrs_waiter_poll() {
 }
 
 
-// ৭. Add mode এ existing সব items fetch করা (cart preview এর জন্য)
 add_action('wp_ajax_qrrs_get_all_order_items', 'qrrs_get_all_order_items');
 function qrrs_get_all_order_items() {
     global $wpdb;
@@ -356,7 +336,6 @@ function qrrs_get_all_order_items() {
 }
 
 
-// ৮. QR অর্ডারের মালিকানা দাবি করা (Claiming Ownership)
 add_action('wp_ajax_qrrs_claim_qr_order', 'handle_qrrs_claim_qr_order');
 function handle_qrrs_claim_qr_order() {
     check_ajax_referer('qrrs_nonce_action', 'security');

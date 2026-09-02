@@ -3,21 +3,14 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 global $wpdb;
 
-/** 
- * 1. BASIC SETUP 
- */
 $today = current_time('Y-m-d');
 $currency = get_qrrs_restaurant_currency($active_res_id);
 
-// $active_res_id nishchit kora
 if (!isset($active_res_id) || !$active_res_id) {
     echo '<p>Error: No active restaurant found.</p>';
     return;
 }
 
-/** 
- * 2. LIVE FETCH: TODAY'S STATS (Fixed Variable Name)
- */
 $stats = $wpdb->get_row($wpdb->prepare(
     "SELECT 
         IFNULL(SUM(grand_total), 0) as sales, 
@@ -28,9 +21,6 @@ $stats = $wpdb->get_row($wpdb->prepare(
     $active_res_id, $today
 ));
 
-/** 
- * 3. LIVE FETCH: MONTHLY SALES TREND (Last 7 Days)
- */
 $sales_trend = $wpdb->get_results($wpdb->prepare(
     "SELECT DATE(created_at) as date, SUM(grand_total) as daily_total 
      FROM {$wpdb->prefix}qrrs_orders 
@@ -46,9 +36,6 @@ foreach ($sales_trend as $row) {
     $trend_data[] = $row->daily_total;
 }
 
-/** 
- * 4. LIVE FETCH: STAFF PERFORMANCE
- */
 $staff_performance = $wpdb->get_results($wpdb->prepare(
     "SELECT u.display_name, COUNT(o.id) as order_count 
      FROM {$wpdb->prefix}qrrs_orders o
@@ -64,9 +51,7 @@ foreach ($staff_performance as $sp) {
     $staff_counts[] = $sp->order_count;
 }
 
-/** 
- * 5. LIVE FETCH: PAYMENT METHODS 
- */
+
 $payments = $wpdb->get_results($wpdb->prepare(
     "SELECT payment_method, COUNT(id) as count 
      FROM {$wpdb->prefix}qrrs_orders 
@@ -81,9 +66,7 @@ foreach($payments as $p) {
     $pay_counts[] = $p->count;
 }
 
-/** 
- * 6. LIVE FETCH: TOP SELLING ITEMS 
- */
+
 $top_items = $wpdb->get_results($wpdb->prepare(
     "SELECT item_name, SUM(quantity) as qty, SUM(price * quantity) as revenue 
      FROM {$wpdb->prefix}qrrs_order_items 
@@ -168,7 +151,6 @@ $top_items = $wpdb->get_results($wpdb->prepare(
 
 <script>
 jQuery(document).ready(function($) {
-    // 1. Monthly Sales Trend
     new Chart(document.getElementById('monthlySalesChart'), {
         type: 'line',
         data: {
@@ -185,7 +167,6 @@ jQuery(document).ready(function($) {
         options: { responsive: true, maintainAspectRatio: false }
     });
 
-    // 2. Payment Methods
     new Chart(document.getElementById('paymentMethodChart'), {
         type: 'doughnut',
         data: {
@@ -198,7 +179,6 @@ jQuery(document).ready(function($) {
         options: { responsive: true, maintainAspectRatio: false }
     });
 
-    // 3. Staff Performance
     new Chart(document.getElementById('staffPerformanceChart'), {
         type: 'bar',
         data: {

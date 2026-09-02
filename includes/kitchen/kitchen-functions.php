@@ -14,25 +14,18 @@ function handle_fetch_kitchen_orders() {
     $user_id = get_current_user_id();
     if (!$user_id) { wp_send_json_error('User not logged in'); }
 
-    // Restaurant ID
     $staff = $wpdb->get_row($wpdb->prepare(
         "SELECT restaurant_id FROM {$wpdb->prefix}qrrs_staff WHERE user_id = %d", $user_id
     ));
     $restaurant_id = $staff ? intval($staff->restaurant_id) : 0;
     if (!$restaurant_id) { wp_send_json_error('No restaurant assigned'); }
 
-    /**
-     * ✨ FIX: হার্ডকোডেড কারেন্ট টাইমের জায়গায় ওয়ার্ডপ্রেস সেটিংসের 
-     * ডাইনামিক লোকাল টাইমজোন (যেমন: Asia/Dhaka) ব্যবহার করা।
-     */
     $wp_timezone = wp_timezone();
     $local_now   = new DateTime('now', $wp_timezone);
     
-    // আজকের দিনের শুরু এবং শেষ একদম লোকাল টাইম (সকাল ০০:০০ থেকে রাত ২৩:৫৯) অনুযায়ী ফিক্সড
     $today_start = $local_now->format('Y-m-d 00:00:00');
     $today_end   = $local_now->format('Y-m-d 23:59:59');
 
-    // Stats
     $stats_raw = $wpdb->get_row($wpdb->prepare("
         SELECT
             COUNT(id) as total,
@@ -46,7 +39,6 @@ function handle_fetch_kitchen_orders() {
         AND created_at BETWEEN %s AND %s
     ", $restaurant_id, $today_start, $today_end));
 
-    // Orders: pending/processing item আছে এমন সব active orders
     $orders = $wpdb->get_results($wpdb->prepare("
         SELECT DISTINCT o.id, o.table_name, o.created_at, o.order_status as raw_status
         FROM $orders_table o
@@ -61,7 +53,6 @@ function handle_fetch_kitchen_orders() {
     $formatted = [];
     foreach ($orders as $order) {
 
-        // ✅ Items + category name join
         $items = $wpdb->get_results($wpdb->prepare("
             SELECT
                 oi.item_name,
@@ -78,15 +69,13 @@ function handle_fetch_kitchen_orders() {
             ORDER BY oi.id ASC
         ", $order->id));
 
-        // ✅ Button logic — Beverages-only check
         $has_pending               = false;
         $has_processing            = false;
-        $all_pending_are_beverages = true; // pending items সব beverages কিনা
+        $all_pending_are_beverages = true;
 
         foreach ($items as $item) {
             if ($item->item_status === 'pending') {
                 $has_pending = true;
-                // category_name এ 'beverage' আছে কিনা case-insensitive check
                 if (stripos(trim($item->category_name), 'beverage') === false) {
                     $all_pending_are_beverages = false;
                 }
@@ -97,23 +86,19 @@ function handle_fetch_kitchen_orders() {
         }
 
         if ($has_pending && $all_pending_are_beverages) {
-            // ✅ শুধু Beverages pending → সরাসরি Mark as Ready (cooking step skip)
-            $next_status = 'ready';
+             $next_status = 'ready';
             $btn_label   = '✅ Mark as Ready';
             $btn_class   = 'btn-done';
         } elseif ($has_pending) {
-            // অন্য category pending → Start Cooking
             $next_status = 'processing';
             $btn_label   = '🔥 Start Cooking';
             $btn_class   = 'btn-start';
         } else {
-            // সব items processing → Mark as Ready
             $next_status = 'ready';
             $btn_label   = '✅ Mark as Ready';
             $btn_class   = 'btn-done';
         }
 
-        // Items structured array
         $items_data = [];
         foreach ($items as $item) {
             $items_data[] = [
@@ -126,10 +111,7 @@ function handle_fetch_kitchen_orders() {
             ];
         }
 
-        /**
-         * ✨ FIX: time_ago কুয়েরি হিসাব করার সময় ও লোকাল ডিভাইস টাইমস্ট্যাম্প ব্যবহার করা 
-         * যাতে "কতক্ষণ আগের অর্ডার" সেটি ১-টু-১ লোকাল ডিভাইস ঘড়ির সাথে পারফেক্টলি মিলে যায়।
-         */
+       
         $order_timestamp = strtotime($order->created_at);
         $current_local_timestamp = $local_now->getTimestamp();
         $time_diff_text = human_time_diff($order_timestamp, $current_local_timestamp) . ' ago';
@@ -138,7 +120,7 @@ function handle_fetch_kitchen_orders() {
             'id'          => $order->id,
             'table_name'  => esc_html($order->table_name),
             'raw_status'  => $order->raw_status,
-            'time_ago'    => $time_diff_text, // 👈 ফিক্সড করা লোকাল ভ্যারিয়েবল পাস করা হলো
+            'time_ago'    => $time_diff_text, 
             'next_status' => $next_status,
             'btn_label'   => $btn_label,
             'btn_class'   => $btn_class,
@@ -170,20 +152,15 @@ function handle_kitchen_status_update() {
     $orders_table = $wpdb->prefix . 'qrrs_orders';
     $items_table  = $wpdb->prefix . 'qrrs_order_items';
 
-    // Order status update
     $wpdb->update($orders_table, ['order_status' => $status], ['id' => $order_id]);
 
-    // Item status update
     if ($status === 'processing') {
-        // pending → processing
         $wpdb->query($wpdb->prepare(
             "UPDATE $items_table SET item_status = 'processing'
              WHERE order_id = %d AND item_status = 'pending'",
             $order_id
         ));
     } elseif ($status === 'ready') {
-        // pending/processing → ready
-        // beverages direct ready ও এখানেই handle হবে
         $wpdb->query($wpdb->prepare(
             "UPDATE $items_table SET item_status = 'ready'
              WHERE order_id = %d AND item_status IN ('pending', 'processing')",

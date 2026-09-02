@@ -1,11 +1,7 @@
 <?php
-/**
- * Reports Dashboard - Main Tab Container
- * সব report section এখান থেকে AJAX দিয়ে load হয়
- */
+
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-// Restaurant ID নির্ধারণ (admin = session, অন্যরা = user meta)
 if ( ! function_exists( 'qrrs_get_active_restaurant_id' ) ) {
     require_once QRRS_PATH . 'includes/reports/report-functions.php';
 }
@@ -58,16 +54,13 @@ $is_admin       = current_user_can( 'administrator' );
 (function($) {
     var currentSection = '';
 
-    // Section লোড করার function
-    function loadReportSection(section) {
+   function loadReportSection(section) {
         if (currentSection === section) return;
         currentSection = section;
 
-        // Tab active করা
         $('.qr-tab-btn').removeClass('active');
         $('.qr-tab-btn[data-section="' + section + '"]').addClass('active');
 
-        // Loading দেখানো
         $('#qrrs-report-content').html(
             '<div class="qrrs-loading"><div class="qrrs-spinner"></div> Loading...</div>'
         );
@@ -84,7 +77,6 @@ $is_admin       = current_user_can( 'administrator' );
             success: function(res) {
                 if (res.success) {
                     $('#qrrs-report-content').html(res.data);
-                    // Section load হওয়ার পর initialize করা
                     if (section === 'dashboard') initDashboardCharts();
                 } else {
                     $('#qrrs-report-content').html('<p style="color:#e74c4c;padding:20px;">Error loading section.</p>');
@@ -96,12 +88,10 @@ $is_admin       = current_user_can( 'administrator' );
         });
     }
 
-    // Tab click
     $(document).on('click', '.qr-tab-btn', function() {
         loadReportSection($(this).data('section'));
     });
 
-    // Page load এ overview দেখানো
     loadReportSection('dashboard');
 
 })(jQuery);

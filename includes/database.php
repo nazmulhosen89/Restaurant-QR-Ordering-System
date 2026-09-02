@@ -135,7 +135,9 @@ class QRRS_Database {
             price decimal(10,2) NOT NULL,
             variants_selected text,
             item_status varchar(20) DEFAULT 'pending',
-            item_type varchar(20) DEFAULT 'original', 
+            item_type varchar(20) DEFAULT 'original',
+            inventory_deducted tinyint(1) DEFAULT 0,
+            inventory_deducted_at datetime DEFAULT NULL,
             PRIMARY KEY (id),
             KEY order_id (order_id)
         ) $charset_collate;";
@@ -155,6 +157,200 @@ class QRRS_Database {
             KEY restaurant_id (restaurant_id)
         ) $charset_collate;";
 
+        /**
+         * 9. Inventory Categories
+         */
+        $sql_inventory_categories = "CREATE TABLE {$prefix}inventory_categories (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            restaurant_id bigint(20) NOT NULL,
+            category_name varchar(255) NOT NULL,
+            category_type varchar(50) DEFAULT 'raw_material',
+            status varchar(20) DEFAULT 'active',
+            created_by bigint(20) DEFAULT 0,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY restaurant_id (restaurant_id)
+        ) $charset_collate;";
+
+        /**
+         * 10. Inventory Units
+         */
+        $sql_inventory_units = "CREATE TABLE {$prefix}inventory_units (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            unit_name varchar(100) NOT NULL,
+            unit_code varchar(30) NOT NULL,
+            unit_type varchar(50) DEFAULT 'count',
+            base_unit_code varchar(30) DEFAULT '',
+            conversion_factor decimal(14,4) DEFAULT 1.0000,
+            status varchar(20) DEFAULT 'active',
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY unit_code (unit_code)
+        ) $charset_collate;";
+
+        /**
+         * 11. Inventory Items
+         */
+        $sql_inventory_items = "CREATE TABLE {$prefix}inventory_items (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            restaurant_id bigint(20) NOT NULL,
+            category_id bigint(20) DEFAULT 0,
+            unit_id bigint(20) NOT NULL,
+            item_name varchar(255) NOT NULL,
+            item_type varchar(50) DEFAULT 'raw_material',
+            sku varchar(100) DEFAULT '',
+            current_stock decimal(14,4) DEFAULT 0.0000,
+            min_stock_level decimal(14,4) DEFAULT 0.0000,
+            cost_per_unit decimal(14,4) DEFAULT 0.0000,
+            storage_location varchar(255) DEFAULT '',
+            status varchar(20) DEFAULT 'active',
+            created_by bigint(20) DEFAULT 0,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT NULL,
+            PRIMARY KEY (id),
+            KEY restaurant_id (restaurant_id),
+            KEY category_id (category_id),
+            KEY unit_id (unit_id)
+        ) $charset_collate;";
+
+        /**
+         * 12. Suppliers
+         */
+        $sql_suppliers = "CREATE TABLE {$prefix}suppliers (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            restaurant_id bigint(20) NOT NULL,
+            supplier_name varchar(255) NOT NULL,
+            phone varchar(50) DEFAULT '',
+            email varchar(120) DEFAULT '',
+            address text,
+            status varchar(20) DEFAULT 'active',
+            created_by bigint(20) DEFAULT 0,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY restaurant_id (restaurant_id)
+        ) $charset_collate;";
+
+        /**
+         * 13. Stock Movements / Ledger
+         */
+        $sql_stock_movements = "CREATE TABLE {$prefix}stock_movements (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            restaurant_id bigint(20) NOT NULL,
+            inventory_item_id bigint(20) NOT NULL,
+            movement_type varchar(50) NOT NULL,
+            quantity_in decimal(14,4) DEFAULT 0.0000,
+            quantity_out decimal(14,4) DEFAULT 0.0000,
+            unit_cost decimal(14,4) DEFAULT 0.0000,
+            total_cost decimal(14,4) DEFAULT 0.0000,
+            reference_type varchar(50) DEFAULT '',
+            reference_id bigint(20) DEFAULT 0,
+            note text,
+            created_by bigint(20) DEFAULT 0,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY restaurant_id (restaurant_id),
+            KEY inventory_item_id (inventory_item_id),
+            KEY movement_type (movement_type),
+            KEY reference_id (reference_id)
+        ) $charset_collate;";
+
+        /**
+         * 14. Requisitions
+         */
+        $sql_requisitions = "CREATE TABLE {$prefix}requisitions (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            restaurant_id bigint(20) NOT NULL,
+            requested_by bigint(20) NOT NULL,
+            requested_role varchar(80) DEFAULT '',
+            department varchar(50) DEFAULT 'manager',
+            request_type varchar(50) DEFAULT 'raw_material',
+            priority varchar(20) DEFAULT 'normal',
+            status varchar(30) DEFAULT 'pending',
+            note text,
+            approved_by bigint(20) DEFAULT 0,
+            approved_at datetime DEFAULT NULL,
+            issued_by bigint(20) DEFAULT 0,
+            issued_at datetime DEFAULT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY restaurant_id (restaurant_id),
+            KEY requested_by (requested_by),
+            KEY status (status)
+        ) $charset_collate;";
+
+        /**
+         * 15. Requisition Items
+         */
+        $sql_requisition_items = "CREATE TABLE {$prefix}requisition_items (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            requisition_id bigint(20) NOT NULL,
+            inventory_item_id bigint(20) NOT NULL,
+            requested_qty decimal(14,4) DEFAULT 0.0000,
+            approved_qty decimal(14,4) DEFAULT 0.0000,
+            issued_qty decimal(14,4) DEFAULT 0.0000,
+            unit_id bigint(20) DEFAULT 0,
+            note text,
+            PRIMARY KEY (id),
+            KEY requisition_id (requisition_id),
+            KEY inventory_item_id (inventory_item_id)
+        ) $charset_collate;";
+
+        /**
+         * 16. Recipes
+         */
+        $sql_recipes = "CREATE TABLE {$prefix}recipes (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            restaurant_id bigint(20) NOT NULL,
+            menu_item_id bigint(20) NOT NULL,
+            recipe_name varchar(255) DEFAULT '',
+            serving_qty decimal(14,4) DEFAULT 1.0000,
+            status varchar(20) DEFAULT 'active',
+            created_by bigint(20) DEFAULT 0,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            updated_at datetime DEFAULT NULL,
+            PRIMARY KEY (id),
+            KEY restaurant_id (restaurant_id),
+            KEY menu_item_id (menu_item_id)
+        ) $charset_collate;";
+
+        /**
+         * 17. Recipe Items
+         */
+        $sql_recipe_items = "CREATE TABLE {$prefix}recipe_items (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            recipe_id bigint(20) NOT NULL,
+            inventory_item_id bigint(20) NOT NULL,
+            quantity_required decimal(14,4) DEFAULT 0.0000,
+            unit_id bigint(20) NOT NULL,
+            wastage_percent decimal(7,2) DEFAULT 0.00,
+            cost_snapshot decimal(14,4) DEFAULT 0.0000,
+            PRIMARY KEY (id),
+            KEY recipe_id (recipe_id),
+            KEY inventory_item_id (inventory_item_id)
+        ) $charset_collate;";
+
+        /**
+         * 18. Wastage
+         */
+        $sql_wastage = "CREATE TABLE {$prefix}wastage (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            restaurant_id bigint(20) NOT NULL,
+            inventory_item_id bigint(20) NOT NULL,
+            quantity decimal(14,4) DEFAULT 0.0000,
+            unit_id bigint(20) DEFAULT 0,
+            reason varchar(255) DEFAULT '',
+            note text,
+            status varchar(30) DEFAULT 'pending',
+            reported_by bigint(20) DEFAULT 0,
+            approved_by bigint(20) DEFAULT 0,
+            approved_at datetime DEFAULT NULL,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY restaurant_id (restaurant_id),
+            KEY inventory_item_id (inventory_item_id),
+            KEY status (status)
+        ) $charset_collate;";
+
         // Execute all queries
         dbDelta( $sql_restaurants );
         dbDelta( $sql_staff );
@@ -164,5 +360,56 @@ class QRRS_Database {
         dbDelta( $sql_orders );
         dbDelta( $sql_order_items );
         dbDelta( $sql_kitchen_sessions );
+        dbDelta( $sql_inventory_categories );
+        dbDelta( $sql_inventory_units );
+        dbDelta( $sql_inventory_items );
+        dbDelta( $sql_suppliers );
+        dbDelta( $sql_stock_movements );
+        dbDelta( $sql_requisitions );
+        dbDelta( $sql_requisition_items );
+        dbDelta( $sql_recipes );
+        dbDelta( $sql_recipe_items );
+        dbDelta( $sql_wastage );
+
+        self::seed_inventory_units();
+    }
+
+    private static function seed_inventory_units() {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'qrrs_inventory_units';
+        $defaults = [
+            [ 'Kilogram', 'kg', 'weight', 'g', 1000 ],
+            [ 'Gram', 'g', 'weight', 'g', 1 ],
+            [ 'Liter', 'l', 'volume', 'ml', 1000 ],
+            [ 'Milliliter', 'ml', 'volume', 'ml', 1 ],
+            [ 'Piece', 'pcs', 'count', 'pcs', 1 ],
+            [ 'Packet', 'pkt', 'count', 'pkt', 1 ],
+            [ 'Box', 'box', 'count', 'box', 1 ],
+        ];
+
+        foreach ( $defaults as $unit ) {
+            $exists = $wpdb->get_var(
+                $wpdb->prepare( "SELECT id FROM $table WHERE unit_code = %s", $unit[1] )
+            );
+
+            if ( $exists ) {
+                continue;
+            }
+
+            $wpdb->insert(
+                $table,
+                [
+                    'unit_name'         => $unit[0],
+                    'unit_code'         => $unit[1],
+                    'unit_type'         => $unit[2],
+                    'base_unit_code'    => $unit[3],
+                    'conversion_factor' => $unit[4],
+                    'status'            => 'active',
+                    'created_at'        => current_time( 'mysql' ),
+                ],
+                [ '%s', '%s', '%s', '%s', '%f', '%s', '%s' ]
+            );
+        }
     }
 }

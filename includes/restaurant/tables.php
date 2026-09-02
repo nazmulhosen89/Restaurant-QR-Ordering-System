@@ -5,9 +5,6 @@ global $wpdb;
 $table_db = $wpdb->prefix . 'qrrs_tables';
 $res_db   = $wpdb->prefix . 'qrrs_restaurants';
 
-/**
- * 1. Restaurant ID Logic
- */
 if ( current_user_can('administrator') ) {
     if ( ! session_id() ) session_start();
     $active_res_id = isset($_SESSION['qrrs_active_res_id']) ? intval($_SESSION['qrrs_active_res_id']) : 0;
@@ -20,7 +17,6 @@ if (!$active_res_id) {
     return;
 }
 
-// ২. টেবিল যোগ করার লজিক (Toast Update)
 if ( isset($_POST['add_table']) ) {
     $res_id     = intval($_POST['restaurant_id']);
     $t_name     = sanitize_text_field($_POST['table_name']);
@@ -34,20 +30,16 @@ if ( isset($_POST['add_table']) ) {
         'qr_token'      => $qr_token,
         'status'        => 'available'
     ]);
-    // Toast Success
     echo "<div class='qrrs-toast success'>Table '$t_name' added successfully!</div>";
 }
 
-// ৩. টেবিল ডিলিট করার লজিক (Toast Update)
 if ( isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']) ) {
     $wpdb->delete($table_db, [
         'id'            => intval($_GET['id']),
         'restaurant_id' => $active_res_id
     ]);
-    // Toast Delete/Warning
     echo "<div class='qrrs-toast success'>Table deleted successfully!</div>";
     
-    // Redirect logic to clean URL after 2 sec
     echo "<script>setTimeout(function(){ window.location.href='?tab=tables'; }, 2000);</script>";
 }
 
@@ -109,7 +101,6 @@ $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $r
         </thead>
         <tbody>
             <?php 
-            // শুধুমাত্র বর্তমান রেস্টুরেন্টের টেবিলগুলো ফেচ করা হচ্ছে
             $tables = $wpdb->get_results($wpdb->prepare(
                 "SELECT * FROM $table_db WHERE restaurant_id = %d ORDER BY id DESC",
                 $active_res_id
@@ -181,9 +172,8 @@ $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $r
 
     $('#print-all-qr').on('click', function(){
         var printContainer = $('#print-all-container');
-        printContainer.empty(); // আগের ডাটা পরিষ্কার করা
+        printContainer.empty(); 
         
-        // সব টেবিল রো থেকে ডাটা সংগ্রহ করা
         var tables = [];
         $('.print-qr-btn').each(function(){
             tables.push({
@@ -198,7 +188,6 @@ $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $r
             return;
         }
 
-        // প্রিন্ট উইন্ডো সেটআপ
         var printWindow = window.open('', '_blank');
         printWindow.document.write('<html><head><title>Print All QR</title>');
         printWindow.document.write('<style>@media print { .qr-item { page-break-inside: avoid; margin-bottom: 50px; text-align: center; font-family: sans-serif; float: left; width: 33.33%; padding: 20px; box-sizing: border-box; } img { max-width: 100%; height: auto; display: block; margin: 10px auto; } }</style>');
@@ -208,7 +197,6 @@ $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $r
 
         var wrapper = printWindow.document.getElementById('all-qr-wrapper');
 
-        // লুপ চালিয়ে কিউআর জেনারেট করা
         tables.forEach(function(item, index) {
             var itemDiv = printWindow.document.createElement('div');
             itemDiv.className = 'qr-item';
@@ -220,7 +208,6 @@ $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $r
             `;
             wrapper.appendChild(itemDiv);
 
-            // কিউআর কোড লাইব্রেরি ব্যবহার করে জেনারেট
             new QRCode(printWindow.document.getElementById('qr-all-' + index), {
                 text: item.link,
                 width: 250,
@@ -228,7 +215,6 @@ $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $r
             });
         });
 
-        // কিউআর কোড ইমেজ লোড হওয়ার জন্য সামান্য বিরতি দিয়ে প্রিন্ট
         setTimeout(function(){
             printWindow.print();
             printWindow.close();

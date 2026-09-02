@@ -25,6 +25,10 @@ $edit_id   = isset($_GET['edit_id']) ? intval($_GET['edit_id']) : 0;
 $edit_item = $edit_id ? $wpdb->get_row($wpdb->prepare("SELECT * FROM $items_table WHERE id = %d", $edit_id)) : null;
 $base_url  = home_url('/restaurant-dashboard/?tab=items');
 
+$inventory_items = function_exists('qrrs_inventory_get_items') ? qrrs_inventory_get_items($current_res_id, true) : [];
+$inventory_units = function_exists('qrrs_inventory_get_units') ? qrrs_inventory_get_units() : [];
+$recipe_items    = ($edit_id && function_exists('qrrs_inventory_get_recipe_items')) ? qrrs_inventory_get_recipe_items($current_res_id, $edit_id) : [];
+
 // --- 2. HANDLE SAVE / UPDATE LOGIC ---
 if ( isset($_POST['save_item_action']) ) {
     if (!isset($_POST['save_item_nonce_field']) || !wp_verify_nonce($_POST['save_item_nonce_field'], 'save_item_nonce')) {
@@ -50,12 +54,33 @@ if ( isset($_POST['save_item_action']) ) {
         'is_tax_free'   => isset($_POST['is_tax_free']) ? 1 : 0 
     ];
 
+    $saved_item_id = 0;
+
     if ($edit_id > 0) {
         $result = $wpdb->update($items_table, $data, ['id' => $edit_id]);
         $status = ($result !== false) ? "updated" : "error";
+        $saved_item_id = $edit_id;
     } else {
         $result = $wpdb->insert($items_table, $data);
         $status = ($result !== false) ? "inserted" : "error";
+        $saved_item_id = $result !== false ? $wpdb->insert_id : 0;
+    }
+
+    if (
+        $saved_item_id
+        && function_exists('qrrs_inventory_save_menu_item_recipe')
+        && function_exists('qrrs_can_use_feature')
+        && qrrs_can_use_feature('recipe')
+        && isset($_POST['recipe_inventory_item_id'])
+    ) {
+        qrrs_inventory_save_menu_item_recipe(
+            intval($_POST['restaurant_id']),
+            $saved_item_id,
+            (array) $_POST['recipe_inventory_item_id'],
+            isset($_POST['recipe_quantity']) ? (array) $_POST['recipe_quantity'] : [],
+            isset($_POST['recipe_unit_id']) ? (array) $_POST['recipe_unit_id'] : [],
+            isset($_POST['recipe_wastage_percent']) ? (array) $_POST['recipe_wastage_percent'] : []
+        );
     }
 
     wp_safe_redirect($base_url . '&status=' . $status);
@@ -115,7 +140,6 @@ if(isset($_GET['status'])) {
                     <select name="category_id" required>
                         <option value="">Select Category</option>
                         <?php
-                        // Only fetch categories for the active restaurant
                         $cats = $wpdb->get_results($wpdb->prepare("SELECT id, category_name FROM $cat_table WHERE restaurant_id = %d ORDER BY category_name ASC", $current_res_id));
                         foreach($cats as $cat) {
                             echo "<option value='{$cat->id}' ".($edit_item && $edit_item->category_id == $cat->id ? 'selected':'').">{$cat->category_name}</option>";
@@ -169,6 +193,66 @@ if(isset($_GET['status'])) {
                 <textarea name="description" rows="2"><?php echo esc_textarea($edit_item->description ?? ''); ?></textarea>
             </div>
 
+            <div class="qrrs-card" style="padding:18px; margin:0 0 20px; background:#f8fafc; border:1px solid #e2e8f0;">
+                <div style="display:flex; justify-content:space-between; gap:15px; align-items:center; margin-bottom:12px;">
+                    <div>
+                        <h4 style="margin:0;">Recipe / Ingredients</h4>
+                        <p style="margin:4px 0 0; color:#64748b; font-size:13px;">Optional. Add raw materials used to prepare this menu item.</p>
+                    </div>
+                    <button type="button" class="button" id="qrrs-add-recipe-row" <?php echo ( function_exists('qrrs_can_use_feature') && ! qrrs_can_use_feature('recipe') ) ? 'disabled style="opacity:.55; cursor:not-allowed;"' : ''; ?>>Add Ingredient</button>
+                </div>
+
+                <?php if ( function_exists('qrrs_can_use_feature') && ! qrrs_can_use_feature('recipe') ) : ?>
+                    <?php qrrs_render_upgrade_notice( 'Recipe Management' ); ?>
+                <?php elseif (empty($inventory_items)) : ?>
+                    <p style="margin:0; color:#b45309;">No inventory items found yet. Add raw materials from Inventory first.</p>
+                <?php else : ?>
+                    <table class="qrrs-table" id="qrrs-recipe-table" style="margin-top:0;">
+                        <thead>
+                            <tr>
+                                <th>Ingredient</th>
+                                <th>Qty</th>
+                                <th>Unit</th>
+                                <th>Wastage %</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $rows = !empty($recipe_items) ? $recipe_items : [null];
+                            foreach ($rows as $recipe_row) :
+                            ?>
+                            <tr>
+                                <td>
+                                    <select name="recipe_inventory_item_id[]">
+                                        <option value="">Select ingredient</option>
+                                        <?php foreach ($inventory_items as $inventory_item) : ?>
+                                            <option value="<?php echo esc_attr($inventory_item->id); ?>" <?php selected($recipe_row->inventory_item_id ?? 0, $inventory_item->id); ?>>
+                                                <?php echo esc_html($inventory_item->item_name); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </td>
+                                <td><input type="number" step="0.0001" name="recipe_quantity[]" value="<?php echo esc_attr($recipe_row->quantity_required ?? ''); ?>"></td>
+                                <td>
+                                    <select name="recipe_unit_id[]">
+                                        <option value="">Unit</option>
+                                        <?php foreach ($inventory_units as $unit) : ?>
+                                            <option value="<?php echo esc_attr($unit->id); ?>" <?php selected($recipe_row->unit_id ?? 0, $unit->id); ?>>
+                                                <?php echo esc_html($unit->unit_code); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </td>
+                                <td><input type="number" step="0.01" name="recipe_wastage_percent[]" value="<?php echo esc_attr($recipe_row->wastage_percent ?? 0); ?>"></td>
+                                <td><button type="button" class="button qrrs-remove-recipe-row">Remove</button></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </div>
+
             <div style="background: #fffde7; padding: 15px; border-radius: 8px; border: 1px solid #ffe082; margin-bottom: 20px;">
                 <label style="margin-right: 20px; cursor:pointer; font-weight:bold;">
                     <input type="checkbox" name="is_tax_free" <?php echo (isset($edit_item->is_tax_free) && $edit_item->is_tax_free) ? 'checked' : ''; ?> style="height: 18px !important;"> 
@@ -210,10 +294,8 @@ if(isset($_GET['status'])) {
                 $current_page = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
                 $offset = ($current_page - 1) * $per_page;
 
-                // Only count items for this restaurant
                 $total_items = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $items_table WHERE restaurant_id = %d", $current_res_id));
                 
-                // Fetch items with correct filtering
                 $items = $wpdb->get_results($wpdb->prepare(
                     "SELECT i.*, c.category_name as cat_name FROM $items_table i 
                     JOIN $cat_table c ON i.category_id=c.id 
@@ -267,7 +349,6 @@ if(isset($_GET['status'])) {
 
 <script>
 jQuery(document).ready(function($){
-    // --- Toast Hide Logic ---
     if ($('.qrrs-toast').length > 0) {
         setTimeout(function() {
             $('.qrrs-toast').addClass('toast-fade-out');
@@ -275,7 +356,6 @@ jQuery(document).ready(function($){
         }, 3000);
     }
 
-    // --- Media Uploader ---
     $('.upload-media').click(function(e){
         e.preventDefault();
         var uploader = wp.media({
@@ -287,6 +367,26 @@ jQuery(document).ready(function($){
             $('#img_val').val(file.url);
             $('#preview').attr('src', file.url);
         }).open();
+    });
+
+    $('#qrrs-add-recipe-row').on('click', function(){
+        var $tbody = $('#qrrs-recipe-table tbody');
+        var $row = $tbody.find('tr:first').clone();
+        $row.find('select').val('');
+        $row.find('input').val('');
+        $row.find('input[name="recipe_wastage_percent[]"]').val('0');
+        $tbody.append($row);
+    });
+
+    $(document).on('click', '.qrrs-remove-recipe-row', function(){
+        var $tbody = $('#qrrs-recipe-table tbody');
+        if ($tbody.find('tr').length > 1) {
+            $(this).closest('tr').remove();
+        } else {
+            $(this).closest('tr').find('select').val('');
+            $(this).closest('tr').find('input').val('');
+            $(this).closest('tr').find('input[name="recipe_wastage_percent[]"]').val('0');
+        }
     });
 });
 </script>

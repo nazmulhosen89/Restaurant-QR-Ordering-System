@@ -5,7 +5,6 @@ global $wpdb;
 $active_res_id = isset($active_res_id) ? $active_res_id : (isset($_SESSION['qrrs_active_res_id']) ? $_SESSION['qrrs_active_res_id'] : 0);
 if ( ! $active_res_id ) return;
 
-// Restaurant info fetch
 $restaurant  = $wpdb->get_row($wpdb->prepare(
     "SELECT * FROM {$wpdb->prefix}qrrs_restaurants WHERE id = %d", $active_res_id
 ));
@@ -112,21 +111,18 @@ var qrrsResInfo = {
 
 jQuery(document).ready(function($) {
 
-    // Flatpickr
     $("#qrrs-date-range").flatpickr({
         mode: "range",
         dateFormat: "Y-m-d",
         defaultDate: ["<?php echo date('Y-m-01'); ?>", "<?php echo date('Y-m-d'); ?>"]
     });
 
-    // Generate Report
     $('#generate-sales-report').on('click', function() {
         var $btn       = $(this);
         var reportType = $('#report-type-select').val();
 
         $btn.prop('disabled', true).text('Generating...');
 
-        // Action নির্ধারণ
         var ajaxAction = 'fetch_sales_report_data';
         if (reportType === 'item_wise') {
             ajaxAction = 'fetch_item_wise_report';
@@ -135,7 +131,6 @@ jQuery(document).ready(function($) {
 
         if (reportType === 'order_type_wise'){ ajaxAction = 'fetch_order_type_report'; }
         
-        // Action bar title আপডেট
         var titles = {
             'general_sales'   : 'Sales Report',
             'item_wise'       : 'Item-wise Sales Report',
@@ -198,11 +193,9 @@ function buildReportFooter() {
 function printSalesReport() {
     var dateRange = document.getElementById('qrrs-date-range').value || '';
 
-    // Print এর জন্য image সরিয়ে দেওয়া (item-wise এ)
     var contentEl = document.getElementById('sales-report-result');
     var clone = contentEl.cloneNode(true);
 
-    // img tag গুলো সরাও, শুধু item name রাখো
     clone.querySelectorAll('.item-img-cell img, .item-img-cell .no-img-sm').forEach(function(el) { el.remove(); });
     clone.querySelectorAll('.item-rank-cards').forEach(function(el) { el.remove(); }); // top cards সরাও (image ছাড়া awkward)
 
@@ -247,7 +240,6 @@ function exportToExcel() {
 }
 
 function doExcelExport(table) {
-    // Excel এর জন্য image column সরিয়ে text only clone
     var clone = table.cloneNode(true);
     clone.querySelectorAll('img, .no-img-sm').forEach(function(el) { el.remove(); });
 
@@ -323,7 +315,6 @@ function doPDFExport(table) {
     doc.text('Generated: ' + new Date().toLocaleDateString(), pageW - 14, y + 5, { align: 'right' });
     y += 13;
 
-    // Image column সরিয়ে দেওয়া PDF এ
     var clone = table.cloneNode(true);
     clone.querySelectorAll('img, .no-img-sm, .no-img').forEach(function(el) { el.remove(); });
 

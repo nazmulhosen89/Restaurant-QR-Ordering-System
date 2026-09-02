@@ -1,17 +1,12 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-
-
-
-/**
- * AJAX: Item-wise Sales Report
- * এই function টা qrrs-restaurant-system.php এ add করো
- * add_action এর উপরে paste করো
- */
 function handle_fetch_item_wise_report() {
     if ( ! isset($_POST['security']) || ! wp_verify_nonce($_POST['security'], 'qrrs_nonce_action') ) {
         wp_send_json_error('Security check failed.');
+    }
+    if ( function_exists( 'qrrs_free_report_ajax_guard' ) ) {
+        qrrs_free_report_ajax_guard( 'Item Performance Report' );
     }
 
     parse_str($_POST['formData'], $params);
@@ -57,21 +52,18 @@ function handle_fetch_item_wise_report() {
 
     $results = $wpdb->get_results($wpdb->prepare($sql, $res_id, $start_date, $end_date));
 
-    // ✅ DB Error + actual table names debug
     if ( $wpdb->last_error ) {
         wp_send_json_success(array('data' => '<p style="color:red;">DB Error: ' . $wpdb->last_error . '</p><p>Tables checked: ' . $orders_table . ', ' . $items_table . ', ' . $menu_table . '</p>'));
         return;
     }
 
     if ( empty($results) ) {
-        // order_items table এ data আছে কিনা দেখো
         $test = $wpdb->get_var("SELECT COUNT(*) FROM {$items_table}");
         $test2 = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$orders_table} WHERE restaurant_id = %d AND order_status = 'completed'", $res_id));
         wp_send_json_success(array('data' => '<p style="color:orange;">No results. order_items total rows: ' . $test . ' | completed orders for res_id ' . $res_id . ': ' . $test2 . '</p>'));
         return;
     }
 
-    // ---- Totals ----
     $total_count  = count($results);
     $grand_qty    = 0;
     $grand_amount = 0;

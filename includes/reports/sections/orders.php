@@ -150,21 +150,16 @@ function printOrderReport() {
     var resultEl = document.getElementById('order-report-result');
     if (!resultEl) return;
 
-    // মেইন রিপোর্টের একটা ফ্রেশ ক্লোন নিচ্ছি
     var clone = resultEl.cloneNode(true);
     
-    // প্রিন্ট স্ক্রিন থেকে শুধু অ্যাকশন বাটন বা এক্সট্রা বাটন থাকলে তা ফেলে দিচ্ছি
     clone.querySelectorAll('button, .action-buttons').forEach(function(el) { 
         el.remove(); 
     });
 
-    // একটি নতুন ফাঁকা ব্রাউজার উইন্ডো ওপেন করছি
     var win = window.open('', '_blank', 'width=1000,height=800');
     
-    // এই নতুন উইন্ডোতে শুধু রিপোর্টের জন্য প্রয়োজনীয় ফ্রেশ সিএসএস এবং এইচটিএমএল লিখব
     win.document.write('<html><head><title>Order Report</title>');
     
-    // মেইন ড্যাশবোর্ডে কার্ড ও চার্ট যেভাবে সুন্দর দেখাত, সেই লেআউট ধরে রাখার জন্য সিএসএস
     win.document.write('<style>'
         + 'body { font-family: "Segoe UI", system-ui, sans-serif; padding: 40px; color: #1e293b; background: #fff; }'
         + 'table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }'
@@ -172,36 +167,29 @@ function printOrderReport() {
         + 'td { padding: 12px 10px; border-bottom: 1px solid #f1f5f9; color: #475569; vertical-align: middle; }'
         + 'tr:last-child td { border-top: 2px solid #2271b1; font-weight: bold; background: #f0f6fb; color: #1e293b; }'
         
-        // কার্ডগুলোর গ্রিড লেআউট (স্ক্রিনের মতো পাশাপাশি রাখার জন্য)
         + '.report-layout main > div:first-of-type, div[style*="display: flex"], div[style*="grid"] {'
         + '    display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 20px !important; margin-bottom: 30px !important;'
         + '}'
         
-        // কার্ডের ভেতরের টিক, ক্রস, বালুঘড়ি আইকন এবং টেক্সটের পজিশন ঠিক রাখার স্টাইল
         + 'div[style*="border-radius"] { border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; position: relative; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }'
         + 'div[style*="font-size: 50px"], div[style*="font-size:50px"] { font-size: 40px !important; margin-bottom: 10px; }'
         
-        // প্রিন্ট করার সময় কালার ও ব্যাকগ্রাউন্ড ফোর্সড অ্যাক্টিভ রাখা
         + '@media print {'
         + '  body { padding: 0; }'
         + '  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }'
         + '}'
         + '</style></head><body>');
     
-    // রিপোর্টের হেডার (লোগো, রেস্টুরেন্টের নাম) যোগ করা
     win.document.write(buildOrderHeader(dateRange));
     
-    // রিপোর্টের আসল বডি (কার্ড, চার্ট, টেবিল) পুশ করা
     win.document.write('<div class="report-print-body">' + clone.innerHTML + '</div>');
     
-    // রিপোর্টের ফুটার যোগ করা
     win.document.write(buildOrderFooter());
     
     win.document.write('</body></html>');
     win.document.close();
     win.focus();
     
-    // একটু সময় দেওয়া যাতে ইমেজ বা কন্টেন্ট নতুন উইন্ডোতে রেন্ডার হতে পারে, তারপর প্রিন্ট প্রম্পট আসবে
     setTimeout(function() { 
         win.print(); 
         win.close(); 
@@ -294,12 +282,10 @@ function doOrderPDF(table) {
 
 <style>
     @media print {
-    /* যখন প্রিন্ট চলবে, তখন বডির ভেতরের সব এলিমেন্টকে প্রথমে হাইড করে দেব */
     body.qrrs-printing-in-progress > * {
         display: none !important;
     }
 
-    /* শুধুমাত্র আমাদের রিপোর্টের মেইন কন্টেন্ট এরিয়াকে জোরপূর্বক ভিজিবল করব */
     body.qrrs-printing-in-progress .report-layout,
     body.qrrs-printing-in-progress .report-layout main,
     body.qrrs-printing-in-progress #order-report-result {
@@ -312,13 +298,11 @@ function doOrderPDF(table) {
         float: none !important;
         overflow: visible !important;
     }
-
-    /* রিপোর্টের অ্যাকশন বার বা ভেতরের কোনো বাটন প্রিন্টে আসবে না */
+    
     #order-report-action-bar, button, .report-layout aside {
         display: none !important;
     }
 
-    /* চার্ট, আইকন এবং কার্ডের কালার ঠিক রাখার জন্য */
     body {
         background: #ffffff !important;
         color: #000000 !important;

@@ -5,6 +5,9 @@ function handle_fetch_kitchen_report() {
     if ( ! isset($_POST['security']) || ! wp_verify_nonce($_POST['security'], 'qrrs_nonce_action') ) {
         wp_send_json_error('Security check failed.');
     }
+    if ( function_exists( 'qrrs_free_report_ajax_guard' ) ) {
+        qrrs_free_report_ajax_guard( 'Kitchen/KOT Report' );
+    }
 
     parse_str($_POST['formData'], $params);
     global $wpdb;
@@ -29,7 +32,6 @@ function handle_fetch_kitchen_report() {
     // ===================== KOT HISTORY =====================
     if ( $report_type === 'kot_history' ) {
 
-        // Single JOIN query — দুটো আলাদা query এর বদলে
         $orders = $wpdb->get_results($wpdb->prepare(
             "SELECT
                 o.id,

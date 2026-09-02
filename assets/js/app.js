@@ -5,7 +5,7 @@ $(document).on('change', '.restaurant-selector-dropdown', function() {
         res_id: res_id
     }, function(response) {
         if(response.success) {
-            window.location.reload(); // Page reload hole reports.php notun ID pabe
+            window.location.reload();
         }
     });
 });

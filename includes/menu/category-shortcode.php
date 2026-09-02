@@ -1,9 +1,4 @@
 <?php
-/**
- * Category List Only Shortcode
- * Usage: [qrrs_category_list restaurant_id="1"]
- */
-
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 add_shortcode( 'qrrs_category_list', 'qrrs_render_category_list' );

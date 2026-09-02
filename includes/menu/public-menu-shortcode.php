@@ -1,8 +1,4 @@
 <?php
-/**
- * Public Menu Shortcode with Dark Theme & Pagination
- * Usage: [qrrs_public_menu restaurant_id="1"]
- */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
@@ -19,14 +15,12 @@ function qrrs_render_public_menu( $atts ) {
     global $wpdb;
     $prefix = $wpdb->prefix . 'qrrs_';
 
-    // 1. Fetch Categories
-    $categories = $wpdb->get_results( $wpdb->prepare(
+   $categories = $wpdb->get_results( $wpdb->prepare(
         "SELECT * FROM {$prefix}categories WHERE restaurant_id = %d ORDER BY id ASC",
         $restaurant_id
     ) );
 
-    // 2. Fetch Available Items
-    $items = $wpdb->get_results( $wpdb->prepare(
+   $items = $wpdb->get_results( $wpdb->prepare(
         "SELECT * FROM {$prefix}items WHERE restaurant_id = %d AND is_available = 1 ORDER BY category_id ASC, id ASC",
         $restaurant_id
     ) );
@@ -35,7 +29,6 @@ function qrrs_render_public_menu( $atts ) {
         return '<p style="color:#666; text-align:center; padding:50px;">No menu items found for this restaurant.</p>';
     }
 
-    // Group items for category count
     $grouped = [];
     foreach ( $items as $item ) {
         $grouped[ $item->category_id ][] = $item;
@@ -103,7 +96,7 @@ function qrrs_render_public_menu( $atts ) {
 
     <script>
     (function() {
-        const itemsPerPage = 6; // Onek gulo item thakle 9 ta kore ek page-e thakbe
+        const itemsPerPage = 6; 
         let currentPage = 1;
         const wrap = document.getElementById('qrrs-menu-<?php echo $restaurant_id; ?>');
         if (!wrap) return;
@@ -115,10 +108,8 @@ function qrrs_render_public_menu( $atts ) {
         function renderMenu(filteredCards) {
             const totalPages = Math.ceil(filteredCards.length / itemsPerPage);
             
-            // Hide all
             cards.forEach(c => c.classList.add('qrrs-hidden'));
 
-            // Show current page items
             const start = (currentPage - 1) * itemsPerPage;
             const end = start + itemsPerPage;
             filteredCards.slice(start, end).forEach(c => c.classList.remove('qrrs-hidden'));
@@ -149,14 +140,13 @@ function qrrs_render_public_menu( $atts ) {
                 this.classList.add('active');
                 
                 const cat = this.dataset.cat;
-                currentPage = 1; // Filter korle page 1 e jabe
+                currentPage = 1; 
 
                 const filtered = cards.filter(c => cat === 'all' || c.dataset.cat === cat);
                 renderMenu(filtered);
             };
         });
-
-        // Initial Load
+        
         renderMenu(cards);
     })();
     </script>

@@ -2,13 +2,11 @@
 global $wpdb;
 $res_table = $wpdb->prefix . 'qrrs_restaurants';
 
-// $order->restaurant_id থেকে রেস্টুরেন্টের সকল তথ্য নিয়ে আসা
 $restaurant = $wpdb->get_row($wpdb->prepare(
     "SELECT * FROM $res_table WHERE id = %d", 
     $order->restaurant_id
 ));
 
-// যদি ডাটাবেসে তথ্য না থাকে তবে ডিফল্ট মান দেখাবে
 $res_name    = !empty($restaurant->restaurant_name) ? $restaurant->restaurant_name : get_bloginfo('name');
 $res_address = !empty($restaurant->address) ? $restaurant->address : 'Address not set';
 $res_phone   = !empty($restaurant->phone) ? $restaurant->phone : 'Phone not set';

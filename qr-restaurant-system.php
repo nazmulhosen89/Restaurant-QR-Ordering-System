@@ -1,11 +1,13 @@
 <?php
 /**
- * Plugin Name: Restaurant System (Multi-Restaurant SaaS)
- * Description: A full frontend-based Multi-Restaurant Management System with QR Ordering, POS, and Subscriptions.
+ * Plugin Name: NeXt Restro Automation Solutions
+ * Description: A fully AI Powred Multi-Restaurant Automation Solutions with QR Ordering, Inventory, POS, and Lifetime Licensing.
  * Version: 1.2.0
  * Author: Nazmul Hosen
  * Links: www.nazmulh.com
  * Text Domain: qr-restaurant-system
+ * License: GPLv2 or later
+ * License URI: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -17,8 +19,8 @@ define( 'QRRS_URL', plugin_dir_url( __FILE__ ) );
 class QR_Restaurant_System {
 
     public function __construct() {
-        add_action('init', [$this, 'start_session'], 1);
         $this->includes();
+        $this->maybe_upgrade_database();
         register_activation_hook( __FILE__, [ $this, 'activate' ] );
         $this->register_shortcodes();
         add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_assets' ] );
@@ -31,6 +33,8 @@ class QR_Restaurant_System {
         require_once QRRS_PATH . 'includes/helpers.php';
 
         require_once QRRS_PATH . 'includes/restaurant/restaurant-functions.php';
+        require_once QRRS_PATH . 'includes/license/license-functions.php';
+        require_once QRRS_PATH . 'includes/inventory/inventory-functions.php';
         require_once QRRS_PATH . 'includes/menu/menu-functions.php';
         require_once QRRS_PATH . 'includes/order/order-functions.php';
         require_once QRRS_PATH . 'includes/subscriptions/subscription-functions.php';
@@ -42,12 +46,9 @@ class QR_Restaurant_System {
             require_once QRRS_PATH . 'includes/kitchen/kitchen-functions.php';
         }
 
-<<<<<<< HEAD
         require_once QRRS_PATH . 'includes/menu/public-menu-shortcode.php';
         require_once QRRS_PATH . 'includes/menu/category-shortcode.php';
         
-=======
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         // Report AJAX Handlers
         require_once QRRS_PATH . 'includes/reports/handlers/sales-handler.php';
         require_once QRRS_PATH . 'includes/reports/handlers/item-wise-handler.php';
@@ -57,17 +58,20 @@ class QR_Restaurant_System {
         require_once QRRS_PATH . 'includes/reports/handlers/kitchen-report-handler.php';
         require_once QRRS_PATH . 'includes/reports/handlers/staff-report-handler.php';
         require_once QRRS_PATH . 'includes/reports/handlers/payment-tax-handler.php';
-<<<<<<< HEAD
-=======
-
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     }
 
-    public function start_session() {
-    if ( ! session_id() ) {
-        session_start();
+    private function maybe_upgrade_database() {
+        $schema_version = get_option( 'qrrs_inventory_schema_version' );
+
+        if ( '1.0.0' === $schema_version ) {
+            return;
+        }
+
+        if ( class_exists( 'QRRS_Database' ) ) {
+            QRRS_Database::create_tables();
+            update_option( 'qrrs_inventory_schema_version', '1.0.0' );
+        }
     }
-}
 
     public function activate() {
         if ( class_exists( 'QRRS_Database' ) ) {
@@ -163,7 +167,6 @@ class QR_Restaurant_System {
         wp_enqueue_media();
         wp_enqueue_script('jquery');
 
-<<<<<<< HEAD
         // --- External Styles ---
         wp_enqueue_style( 'bootstrap-css', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css', array(), '5.3.3' );
         wp_enqueue_style( 'font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css', array(), '6.5.1' );
@@ -180,32 +183,11 @@ class QR_Restaurant_System {
             'qrrs-frontend-style',
             QRRS_URL . 'assets/css/frontend.css',
             ['bootstrap-css'],
-=======
-        // --- External Styles (Agey load kora bhalo) ---
-        wp_enqueue_style( 'bootstrap-css', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css', array(), '5.3.3' );
-        wp_enqueue_style( 'font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css', array(), '6.5.1' );
-        wp_enqueue_style( 'flatpickr-css', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css', array(), '4.6.13' );
-       wp_enqueue_style( 
-            'material-icons-outlined', 
-            'https://fonts.googleapis.com/css2?family=Material+Icons+Outlined&display=block', 
-            array(), 
-            null 
-        );
-        // --- Custom Styles (Sob shesh-e jate override kora jay) ---
-        wp_enqueue_style(
-            'qrrs-frontend-style',
-            QRRS_URL . 'assets/css/frontend.css',
-            ['bootstrap-css'], // Bootstrap-er upor nirbhor korle
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             '1.2.0'
         );
 
         // --- External Scripts ---
-<<<<<<< HEAD
         wp_enqueue_script( 'chart-js', 'https://cdn.jsdelivr.net/npm/chart.js', [], '4.4.2', true );
-=======
-        wp_enqueue_script('chart-js', 'https://cdn.jsdelivr.net/npm/chart.js', [], '4.4.2', true); // Updated version
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
         wp_enqueue_script( 'flatpickr-js', 'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.js', [], '4.6.13', true );
         wp_enqueue_script( 'bootstrap-js', 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js', array('jquery'), '5.3.3', true );
 
@@ -213,11 +195,7 @@ class QR_Restaurant_System {
         wp_enqueue_script(
             'qrrs-app-js',
             QRRS_URL . 'assets/js/app.js',
-<<<<<<< HEAD
             ['jquery', 'bootstrap-js'],
-=======
-            ['jquery', 'bootstrap-js'], // Bootstrap ba jQuery dorkar hole
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
             '1.2.0',
             true
         );
@@ -228,7 +206,6 @@ class QR_Restaurant_System {
             'qr_nonce' => wp_create_nonce('qr_order_nonce')
         ]);
 
-<<<<<<< HEAD
         $plugin_pages = array('restaurant-login', 'restaurant-dashboard', 'waiter-dashboard', 'kitchen-dashboard', 'billing-counter', 'restaurant-menu');
 
         if ( is_page($plugin_pages) ) {
@@ -236,18 +213,6 @@ class QR_Restaurant_System {
                 .site-header, .site-footer, .header, .footer, #masthead, #colophon {
                     display: none !important;
                 }
-=======
-
-        $plugin_pages = array('restaurant-login', 'restaurant-dashboard', 'waiter-dashboard', 'kitchen-dashboard', 'billing-counter', 'restaurant-menu');
-    
-        if ( is_page($plugin_pages) ) {
-            // Sudhu ei page gulor jonno ekta inline CSS add korbe
-            $custom_css = "
-                .site-header, .site-footer, .header, .footer, #masthead, #colophon { 
-                    display: none !important; 
-                }
-                /* Theme jodi body padding dey seta remove korar jonno */
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
                 body { padding-top: 0 !important; margin-top: 0 !important; }
             ";
             wp_add_inline_style( 'qrrs-frontend-style', $custom_css );
@@ -262,7 +227,6 @@ class QR_Restaurant_System {
         add_action('wp_ajax_nopriv_fetch_pos_items', 'fetch_pos_items_handler');
 
         add_action('wp_ajax_update_dashboard_order_status', 'handle_update_dashboard_order_status');
-<<<<<<< HEAD
 
         add_action('wp_ajax_fetch_sales_report_data', 'handle_fetch_sales_report_data');
         add_action('wp_ajax_fetch_item_wise_report', 'handle_fetch_item_wise_report');
@@ -278,11 +242,6 @@ class QR_Restaurant_System {
             wp_send_json_success(['message' => 'Restaurant Updated']);
         }
         wp_send_json_error('Unauthorized');
-=======
-    
-        add_action('wp_ajax_fetch_sales_report_data', 'handle_fetch_sales_report_data');
-        add_action('wp_ajax_fetch_item_wise_report', 'handle_fetch_item_wise_report');
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     }
 }
 
@@ -344,9 +303,14 @@ function handle_qr_order_placement() {
 
     $res_id   = intval($_POST['restaurant_id']);
     $table_id = intval($_POST['table_id']);
+    $order_type = sanitize_key( $_POST['order_type'] ?? 'take_out' );
     $items    = json_decode(wp_unslash($_POST['items']), true);
 
     if ( empty($items) ) { wp_send_json_error('Cart is empty.'); }
+
+    if ( 'delivery' === $order_type && function_exists( 'qrrs_can_use_feature' ) && ! qrrs_can_use_feature( 'delivery' ) ) {
+        wp_send_json_error( 'Delivery orders are available in Pro only.' );
+    }
 
     $subtotal       = floatval($_POST['subtotal']);
     $tax_amount     = floatval($_POST['tax_amount']);
@@ -357,17 +321,18 @@ function handle_qr_order_placement() {
     if ( $table_id > 0 ) {
         $db_table_name = $wpdb->get_var($wpdb->prepare("SELECT table_name FROM $tables_db WHERE id = %d", $table_id));
         if ( $db_table_name ) { $final_table_name = $db_table_name; }
+    } elseif ( 'delivery' === $order_type ) {
+        $final_table_name = 'Delivery';
     }
 
-    /**
-     * ✨ FIX: কারেন্ট ওর্ডার সেভ টাইমেও সঠিক লোকাল ডিভাইস জোন সেট করা
-     */
+    
     $wp_timezone = wp_timezone();
     $local_now   = new DateTime('now', $wp_timezone);
 
     $order_data = [
         'restaurant_id'  => $res_id,
         'table_name'     => $final_table_name,
+        'order_type'     => $order_type,
         'waiter_id'      => get_current_user_id(),
         'total_amount'   => $subtotal,
         'tax_amount'     => $tax_amount,
@@ -417,7 +382,6 @@ function handle_update_dashboard_order_status() {
     $status      = sanitize_text_field($_POST['status']);
     $order_table = $wpdb->prefix . 'qrrs_orders';
 
-<<<<<<< HEAD
     $update_data = array('order_status' => $status);
 
     $wp_timezone = wp_timezone();
@@ -426,14 +390,6 @@ function handle_update_dashboard_order_status() {
 
     if ( $status === 'ready' || $status === 'served' ) {
         $update_data['ready_at'] = $exact_time;
-=======
-    // ✅ array() syntax — PHP compatibility
-    $update_data = array('order_status' => $status);
-
-    // ✅ ready বা served হলে ready_at সেট করো
-    if ( $status === 'ready' || $status === 'served' ) {
-        $update_data['ready_at'] = current_time('mysql');
->>>>>>> 72c4cdaffa1d6d95cf252b9e8385522e120f65da
     }
 
     if ( $status === 'paid' ) {
@@ -458,22 +414,5 @@ function handle_update_dashboard_order_status() {
         wp_send_json_error('Database update failed: ' . $wpdb->last_error);
     }
 }
-
-
-add_action('wp_ajax_qrrs_set_active_restaurant', function() {
-    if (current_user_can('manage_options')) { // Security check
-        $res_id = intval($_POST['res_id']);
-        if (!session_id()) session_start();
-        $_SESSION['qrrs_selected_res_id'] = $res_id;
-        
-        // Response success pathano
-        wp_send_json_success(['message' => 'Restaurant Updated']);
-    }
-    wp_die();
-});
-
-
-
-
 
 new QR_Restaurant_System();

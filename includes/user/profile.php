@@ -6,20 +6,16 @@ $user_info = get_userdata($user_id);
 $success_msg = '';
 $error_msg = '';
 
-// Handle Profile Update
 if ( isset($_POST['update_profile']) ) {
-    // 1. Basic Info Update
     wp_update_user([
         'ID'           => $user_id,
         'display_name' => sanitize_text_field($_POST['display_name']),
         'user_email'   => sanitize_email($_POST['user_email'])
     ]);
 
-    // 2. Meta Data Update (Photo, Address, etc.)
     update_user_meta( $user_id, 'staff_photo', esc_url_raw( $_POST['staff_photo'] ) );
     update_user_meta( $user_id, 'staff_address', sanitize_textarea_field( $_POST['staff_address'] ) );
     
-    // NID update (Kebol jodi field thake)
     if(isset($_POST['nid_front'])) update_user_meta( $user_id, 'staff_nid_front', esc_url_raw( $_POST['nid_front'] ) );
     if(isset($_POST['nid_back'])) update_user_meta( $user_id, 'staff_nid_back', esc_url_raw( $_POST['nid_back'] ) );
 
@@ -37,7 +33,6 @@ if ( isset($_POST['update_profile']) ) {
     }
 }
 
-// Get User Meta
 $photo     = get_user_meta($user_id, 'staff_photo', true);
 $address   = get_user_meta($user_id, 'staff_address', true);
 $nid_f     = get_user_meta($user_id, 'staff_nid_front', true);

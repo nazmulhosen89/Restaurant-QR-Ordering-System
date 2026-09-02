@@ -5,6 +5,9 @@ function handle_fetch_order_report() {
     if ( ! isset($_POST['security']) || ! wp_verify_nonce($_POST['security'], 'qrrs_nonce_action') ) {
         wp_send_json_error('Security check failed.');
     }
+    if ( function_exists( 'qrrs_free_report_ajax_guard' ) ) {
+        qrrs_free_report_ajax_guard( 'Order Report' );
+    }
 
     parse_str($_POST['formData'], $params);
     global $wpdb;
@@ -388,7 +391,6 @@ function handle_fetch_order_report() {
             return;
         }
 
-        // Find peak, off-peak
         $max_orders  = 0;
         $peak_hour   = null;
         $g_orders    = 0;
@@ -403,24 +405,20 @@ function handle_fetch_order_report() {
             }
         }
 
-        // Build full 24hr array (fill missing hours with 0)
         $hours_map = array();
         foreach ( $hourly as $h ) {
             $hours_map[intval($h->order_hour)] = $h;
         }
 
-        // Format hour label helper
-        function format_hour_label($h) {
+       function format_hour_label($h) {
             if ($h === 0)  return '12 AM';
             if ($h < 12)  return $h . ' AM';
             if ($h === 12) return '12 PM';
             return ($h - 12) . ' PM';
         }
 
-        // Peak period label
         $peak_label = format_hour_label(intval($peak_hour->order_hour)) . ' – ' . format_hour_label(intval($peak_hour->order_hour) + 1);
 
-        // Classify hours
         $morning   = array(6,7,8,9,10,11);
         $afternoon = array(12,13,14,15,16,17);
         $evening   = array(18,19,20,21,22,23);

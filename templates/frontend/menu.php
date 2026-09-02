@@ -1,10 +1,5 @@
 <?php
-/* Template Name: QR Menu Page Template */
 
-/** 
- * এই টেম্পলেটটি থিমের মেইন হেডার ও ফুটার হাইড করে 
- * শুধুমাত্র QR মেনু ইন্টারফেসটি দেখাবে।
- */
 ?>
 <!DOCTYPE html>
 <html <?php language_attributes(); ?>>
@@ -13,12 +8,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
     <?php wp_head(); ?>
     <style>
-        /* ১. থিমের ডিফল্ট হেডার, ফুটার এবং সাইডবার হাইড করা */
         header, footer, .site-header, .site-footer, #masthead, #colophon, #wpadminbar, .nav-menu {
             display: none !important;
         }
 
-        /* Success Animation */
         .success-icon {
             animation: scaleIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
@@ -30,7 +23,6 @@
             border-top: 5px solid #22c55e;
         }
 
-        /* Occupied Page Animation */
         @keyframes fadeSlideUp {
             0% { transform: translateY(30px); opacity: 0; }
             100% { transform: translateY(0); opacity: 1; }
@@ -60,7 +52,6 @@ $cat_table   = $wpdb->prefix . 'qrrs_categories';
 $items_table = $wpdb->prefix . 'qrrs_items';
 $res_table   = $wpdb->prefix . 'qrrs_restaurants';
 
-// ১. Token Validation
 $token = isset($_GET['token']) ? sanitize_text_field($_GET['token']) : '';
 $current_table = $wpdb->get_row($wpdb->prepare(
     "SELECT * FROM $table_db WHERE qr_token = %s", trim($token)
@@ -79,13 +70,11 @@ if (!$current_table) {
     return;
 }
 
-// ২. Restaurant Info
 $res_id   = $current_table->restaurant_id;
 $res_info = $wpdb->get_row($wpdb->prepare("SELECT * FROM $res_table WHERE id = %d", $res_id));
 $db_tax   = $res_info->tax_percent ?? 0;
 $db_sc    = $res_info->service_charge_percent ?? 0;
 
-// ৩. Occupied Check — orders টেবিল থেকে (POS-এর মতোই)
 $today_start = current_time('Y-m-d 00:00:00');
 $today_end   = current_time('Y-m-d 23:59:59');
 
@@ -107,7 +96,6 @@ $active_order = $wpdb->get_row($wpdb->prepare("
     LIMIT 1
 ", $res_id, $current_table->table_name, $today_start, $today_end));
 
-// ৪. যদি টেবিল Occupied হয়, মেনু বন্ধ করে message দেখাও
 if ($active_order) {
     $time_ago   = human_time_diff(strtotime($active_order->created_at), current_time('timestamp'));
     $staff_name = !empty($active_order->waiter_name) ? $active_order->waiter_name : 'Staff';
@@ -213,10 +201,9 @@ if ($active_order) {
     <?php
     wp_footer();
     echo "</body></html>";
-    return; // মেনু আর লোড হবে না
+    return;
 }
 
-// ৫. টেবিল Free হলে — স্বাভাবিক মেনু লোড হবে
 $categories = $wpdb->get_results($wpdb->prepare(
     "SELECT * FROM $cat_table WHERE restaurant_id = %d ORDER BY id ASC", $res_id
 ));
@@ -350,7 +337,6 @@ const TAX_RATE = <?php echo floatval($db_tax); ?>;
 const SC_RATE  = <?php echo floatval($db_sc); ?>;
 let cart = [];
 
-// ১. আইটেম প্রিপেয়ার — ভেরিয়েন্ট থাকলে মোডাল, না থাকলে সরাসরি কার্টে
 function prepareItem(item) {
     let rawVar = item.variants || item.variants_json || "";
     let variants = [];
@@ -384,7 +370,6 @@ function prepareItem(item) {
     }
 }
 
-// ২. ভেরিয়েন্ট কনফার্ম
 function confirmAdd(item) {
     let selected = [];
     document.querySelectorAll('.v_opt_cb:checked').forEach(cb => selected.push(cb.value));
@@ -392,7 +377,6 @@ function confirmAdd(item) {
     closeM();
 }
 
-// ৩. কার্টে যোগ করা
 function addToCart(item, variants) {
     let key = item.id + variants.join('');
     let exist = cart.find(x => x.key === key);
@@ -412,7 +396,6 @@ function addToCart(item, variants) {
     render();
 }
 
-// ৪. কোয়ান্টিটি আপডেট (item card +/- বাটন)
 function updateQty(id, delta) {
     let itemIdx = cart.findIndex(x => x.id == id);
     if (itemIdx > -1) {
@@ -422,12 +405,10 @@ function updateQty(id, delta) {
     }
 }
 
-// ৫. রেন্ডার ফাংশন
 function render() {
     let html = '';
     let sub = 0, taxable = 0, totalItemsCount = 0;
 
-    // কার্ড UI রিসেট
     document.querySelectorAll('.item-card').forEach(c => {
         c.classList.remove('selected');
         let id = c.id.replace('card-', '');
@@ -463,7 +444,6 @@ function render() {
                  </div>`;
     });
 
-    // ডেস্কটপ সাইডবার
     document.getElementById('cart-list').innerHTML = cart.length
         ? html
         : '<div style="text-align:center; color:#94a3b8; margin-top:50px;">Your cart is empty</div>';
@@ -494,7 +474,6 @@ function render() {
         document.getElementById('cart-summary').innerHTML = '';
     }
 
-    // মোবাইল ফ্লোটিং বাটন
     const mobileBtn = document.getElementById('mobile-order-btn');
     if (mobileBtn) {
         if (cart.length > 0 && window.innerWidth <= 799) {
@@ -507,7 +486,6 @@ function render() {
     }
 }
 
-// ৬. অর্ডার প্রিভিউ মোডাল
 function showOrderPreview() {
     if (cart.length === 0) return alert('Your cart is empty!');
 
@@ -570,7 +548,6 @@ function showOrderPreview() {
     document.getElementById('vModal').style.display = 'flex';
 }
 
-// ৭. ফাইনাল অর্ডার প্রসেস
 function processFinalOrder(grandTotal) {
     const btn = document.getElementById('finalConfirmBtn');
     btn.disabled = true;
@@ -605,13 +582,10 @@ function processFinalOrder(grandTotal) {
         },
         success: function(response) {
             if (response.success) {
-                // অর্ডার কনফার্মেশন মোডাল বন্ধ করা
                 closeM();
 
-                // সাকসেস পপআপ দেখানো
                 document.getElementById('successPopup').style.display = 'flex';
 
-                // কাউন্টডাউন ও হোম রিডাইরেক্ট
                 let timeLeft = 3;
                 let timerEl  = document.getElementById('timer');
                 let countdown = setInterval(function() {
@@ -638,7 +612,6 @@ function processFinalOrder(grandTotal) {
 
 function closeM() { document.getElementById('vModal').style.display = 'none'; }
 
-// ক্যাটাগরি ফিল্টার
 document.querySelectorAll('.cat-item').forEach(el => {
     el.onclick = function() {
         document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('active'));

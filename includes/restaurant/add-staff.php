@@ -10,7 +10,7 @@ $staff_table = $wpdb->prefix . 'qrrs_staff';
 $res_table = $wpdb->prefix . 'qrrs_restaurants';
 
 /**
- * 1. Restaurant ID Logic
+ * 1. Restaurant ID
  */
 if ( ! session_id() ) session_start();
 $active_res_id = isset($_SESSION['qrrs_active_res_id']) ? intval($_SESSION['qrrs_active_res_id']) : 0;
@@ -21,7 +21,7 @@ if (!$active_res_id && !isset($_GET['action'])) {
 }
 
 /**
- * 2. Delete Logic
+ * 2. Delete
  */
 if ( isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']) ) {
     $uid_to_delete = intval($_GET['id']);
@@ -40,7 +40,7 @@ if ( isset($_GET['action']) && $_GET['action'] == 'edit' && isset($_GET['id']) )
     $staff_data = get_userdata($staff_id);
 }
 
-// 4. Save/Update Logic
+// 4. Save/Update
 if ( isset($_POST['save_staff']) ) {
     $sid = $edit_mode ? intval($_GET['id']) : 0;
     $restaurant_id = intval( $_POST['restaurant_id'] );
@@ -49,7 +49,7 @@ if ( isset($_POST['save_staff']) ) {
     $staff_name = sanitize_text_field($_POST['staff_name']);
 
     if ( $edit_mode ) {
-        // --- UPDATE LOGIC ---
+        // --- UPDATE ---
         wp_update_user([
             'ID'           => $sid,
             'display_name' => $staff_name
@@ -78,18 +78,18 @@ if ( isset($_POST['save_staff']) ) {
         echo "<div class='qrrs-toast success'>Staff updated successfully!</div>";
         echo "<script>setTimeout(function(){ window.location.href='?tab=add-staff'; }, 2000);</script>";
     } else {
-        // --- CREATE LOGIC ---
+        // --- CREATE ---
         $username = sanitize_user($_POST['staff_user']);
         $password = $_POST['staff_pass'];
 
-        // User exist kore kina check kora
-        if ( username_exists( $username ) ) {
+        if ( function_exists( 'qrrs_free_limit_reached' ) && qrrs_free_limit_reached( $staff_role, $restaurant_id ) ) {
+            echo "<div class='qrrs-toast error'>Free version allows only 1 " . esc_html( str_replace( 'qr_', '', $staff_role ) ) . " user per restaurant. Upgrade to Pro to add more staff.</div>";
+        } elseif ( username_exists( $username ) ) {
             echo "<div class='qrrs-toast error'>Error: Username already exists!</div>";
         } else {
             $new_user_id = wp_create_user($username, $password, $username . '@restaurant.com');
 
             if ( !is_wp_error($new_user_id) ) {
-                // Important: User metadata update
                 wp_update_user(['ID' => $new_user_id, 'display_name' => $staff_name]);
                 
                 update_user_meta( $new_user_id, 'staff_photo', esc_url_raw( $_POST['staff_photo'] ) );
@@ -98,7 +98,6 @@ if ( isset($_POST['save_staff']) ) {
                 update_user_meta( $new_user_id, 'assigned_restaurant', $restaurant_id );
                 update_user_meta( $new_user_id, 'staff_status', $status );
 
-                // Role set kora
                 $user = new WP_User( $new_user_id );
                 $user->set_role( $staff_role );
 
@@ -215,6 +214,9 @@ $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $r
                     <a href="?tab=add-staff">Cancel</a>
                 <?php endif; ?>
             </div>
+            <?php if ( ! $edit_mode && function_exists( 'qrrs_is_pro' ) && ! qrrs_is_pro() ) : ?>
+                <p style="margin:10px 0 0; color:#92400e; font-size:13px;">Free version allows 1 manager, 1 waiter, and 1 kitchen user per restaurant. Extra staff accounts are available in Pro.</p>
+            <?php endif; ?>
         </form>
     </div>
 
@@ -264,7 +266,6 @@ $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $r
 
 <script>
 jQuery(document).ready(function($){
-    // Toast Auto-Hide Function
     function hideToast() {
         if ($('.qrrs-toast').length > 0) {
             setTimeout(function() {
@@ -276,9 +277,7 @@ jQuery(document).ready(function($){
         }
     }
     
-    hideToast(); // Call on load
-
-    // Media Uploader Logic
+    hideToast(); 
     $('.upload-media-btn').on('click', function(e) {
         e.preventDefault();
         var button = $(this);

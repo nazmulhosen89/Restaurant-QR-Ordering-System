@@ -1,9 +1,6 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-/**
- * AJAX: Fetch Sales Report Data
- */
 function handle_fetch_sales_report_data() {
     if ( ! isset($_POST['security']) || ! wp_verify_nonce($_POST['security'], 'qrrs_nonce_action') ) {
         wp_send_json_error('Security check failed.');
@@ -22,6 +19,27 @@ function handle_fetch_sales_report_data() {
     $dates = explode(" to ", $date_range);
     $start_date = trim($dates[0]);
     $end_date   = isset($dates[1]) ? trim($dates[1]) : $start_date;
+    $range_was_limited = false;
+
+    if ( function_exists( 'qrrs_is_pro' ) && ! qrrs_is_pro() ) {
+        $timezone = wp_timezone();
+        $today = new DateTime( 'today', $timezone );
+        $oldest_allowed = ( clone $today )->modify( '-29 days' );
+
+        $requested_start = DateTime::createFromFormat( 'Y-m-d', $start_date, $timezone );
+        $requested_end = DateTime::createFromFormat( 'Y-m-d', $end_date, $timezone );
+
+        if ( $requested_start && $requested_start < $oldest_allowed ) {
+            $start_date = $oldest_allowed->format( 'Y-m-d' );
+            $range_was_limited = true;
+        }
+
+        if ( $requested_end && $requested_end > $today ) {
+            $end_date = $today->format( 'Y-m-d' );
+            $range_was_limited = true;
+        }
+    }
+
     $is_multi_day = ($start_date !== $end_date);
 
     $currency = get_qrrs_restaurant_currency($res_id);
@@ -51,6 +69,12 @@ function handle_fetch_sales_report_data() {
     $results = $wpdb->get_results($query);
 
     ob_start();
+    if ( $range_was_limited ) : ?>
+        <div style="background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; padding:12px 14px; border-radius:8px; margin-bottom:15px;">
+            Free version shows sales data for the last 30 days only. Upgrade to Pro for full historical reports.
+        </div>
+    <?php endif;
+
     if ( ! empty($results) ) :
     ?>
 

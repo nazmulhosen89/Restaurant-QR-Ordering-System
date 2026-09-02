@@ -4,9 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 global $wpdb;
 $current_user_id = get_current_user_id();
 
-/**
- * FIXED: Restaurant ID Logic (Admin Session + Staff Logic)
- */
+
 if ( current_user_can('administrator') ) {
     if ( ! session_id() ) session_start();
     $restaurant_id = isset($_SESSION['qrrs_active_res_id']) 
@@ -24,12 +22,10 @@ if (!$restaurant_id) {
     return;
 }
 
-// ২. Data Fetching (Bakita ager motoi thakbe)
 $res_info = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qrrs_restaurants WHERE id = %d", $restaurant_id));
 $db_tax = $res_info->tax_percent ?? 0;
 $db_sc  = $res_info->service_charge_percent ?? 0;
 
-// ১. ফ্লোর প্ল্যান এবং টেবিল স্ট্যাটাস কুয়েরি (ইউজার ও স্ট্যাটাস সহ)
 $tables = $wpdb->get_results($wpdb->prepare("
     SELECT t.*, 
         o.order_status, 
@@ -50,7 +46,6 @@ $tables = $wpdb->get_results($wpdb->prepare("
 $categories = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qrrs_categories WHERE restaurant_id = %d ORDER BY id ASC", $restaurant_id));
 $items = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qrrs_items WHERE restaurant_id = %d", $restaurant_id));
 
-// Occupied tables: today's active orders (not completed/cancelled)
 $today_start = current_time('Y-m-d 00:00:00');
 $today_end   = current_time('Y-m-d 23:59:59');
 
@@ -77,6 +72,7 @@ foreach($occupied_tables_data as $ot) {
 $occupied_table_names = array_keys($occupied_map);
 
 $plugin_url = plugin_dir_url(dirname(dirname(__FILE__)));
+$can_use_delivery = function_exists( 'qrrs_can_use_feature' ) ? qrrs_can_use_feature( 'delivery' ) : true;
 
 ?>
 
@@ -86,9 +82,15 @@ $plugin_url = plugin_dir_url(dirname(dirname(__FILE__)));
     <div id="pos-overlay" class="pos-overlay">
         <div id="step-type" class="selection-card">
             <h1 style="margin-bottom:20px;">New Order</h1>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px;">
                 <div class="cat-item" style="border:1px solid #eee; border-radius:15px; padding:25px;" onclick="selectType('dine_in')">🍽️<br>Dine In</div>
                 <div class="cat-item" style="border:1px solid #eee; border-radius:15px; padding:25px;" onclick="selectType('take_out')">🛍️<br>Take Out</div>
+                <div class="cat-item <?php echo $can_use_delivery ? '' : 'disabled-option'; ?>" style="border:1px solid #eee; border-radius:15px; padding:25px; <?php echo $can_use_delivery ? 'cursor:pointer;' : 'opacity:0.6; cursor:not-allowed;'; ?> position: relative;" onclick="selectType('delivery')" title="<?php echo $can_use_delivery ? 'Delivery' : 'Available in Pro'; ?>">
+                    🚚<br>Delivery
+                    <?php if ( ! $can_use_delivery ) : ?>
+                        <small style="display:block; font-size:10px; color:#ef4444; margin-top:5px; font-weight:bold;">Pro</small>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
         <div id="step-table" class="selection-card" style="display:none;">
@@ -121,7 +123,6 @@ $plugin_url = plugin_dir_url(dirname(dirname(__FILE__)));
                         $onclick = "selectTable({$t->id}, '" . esc_js($t->table_name) . "')";
                     }
 
-                    // Capacity chairs icons
                     $chair_icons = '';
                     for($i = 0; $i < min($capacity, 6); $i++) $chair_icons .= '🪑';
                 ?>
@@ -172,7 +173,7 @@ $plugin_url = plugin_dir_url(dirname(dirname(__FILE__)));
     <div class="sidebar-left">
         <div class="cat-item active" data-cat="all">🏠<h4>ALL</h4></div>
         <?php foreach($categories as $cat): 
-            // ডাটাবেজ থেকে ইমেজের URL চেক করা হচ্ছে
+        
             $c_img = !empty($cat->image_url) ? $cat->image_url : (!empty($cat->image) ? $cat->image : '');
         ?>
             <div class="cat-item" data-cat="<?php echo $cat->id; ?>">
@@ -189,7 +190,7 @@ $plugin_url = plugin_dir_url(dirname(dirname(__FILE__)));
     <div class="main-content">
         <div class="item-grid">
             <?php foreach($items as $item): 
-                // ইমেজ কলাম চেক করা হচ্ছে (image_url অথবা item_image)
+            
                 $i_img = !empty($item->image_url) ? $item->image_url : (!empty($item->item_image) ? $item->item_image : '');
                 $item_json = json_encode($item);
                 $is_avail = isset($item->is_available) ? intval($item->is_available) : 1;
@@ -264,15 +265,25 @@ const TAX_RATE = <?php echo floatval($db_tax); ?>;
 const SC_RATE  = <?php echo floatval($db_sc); ?>;
 const AJAX_URL = '<?php echo admin_url("admin-ajax.php"); ?>';
 const NONCE    = '<?php echo wp_create_nonce("qr_order_nonce"); ?>';
+const CAN_DELIVERY = <?php echo $can_use_delivery ? 'true' : 'false'; ?>;
 
 let cart = [];
 let orderMeta = { type: '', table_id: 0, table_name: '' };
 
-// --- Initial Setup Functions ---
+
 function selectType(t) { 
+    if(t === 'delivery' && !CAN_DELIVERY) {
+        alert('Delivery orders are available in Pro only.');
+        return;
+    }
+
     orderMeta.type = t; 
     if(t === 'dine_in') { jQuery('#step-type').hide(); jQuery('#step-table').show(); } 
-    else { orderMeta.table_name = 'Take Out'; finalizeSelection(); }
+    else {
+        orderMeta.table_id = 0;
+        orderMeta.table_name = (t === 'delivery') ? 'Delivery' : 'Take Out';
+        finalizeSelection();
+    }
 }
 function selectTable(id, n) { orderMeta.table_id = id; orderMeta.table_name = n; finalizeSelection(); }
 function finalizeSelection() { 
@@ -280,7 +291,7 @@ function finalizeSelection() {
     jQuery('#order-meta-label').text(orderMeta.table_name); 
 }
 
-// --- Menu Core Logic (Same as your menu.php) ---
+
 function prepareItem(item) {
     let rawVar = item.variants || item.variants_json || "";
     let variants = [];
@@ -340,7 +351,7 @@ function updateQty(key, delta) {
 function render() {
     let html = '', sub = 0, taxable = 0;
     
-    // Reset UI
+    
     document.querySelectorAll('.item-qty-badge').forEach(b => b.style.display = 'none');
     document.querySelectorAll('.item-card').forEach(c => c.classList.remove('selected'));
 
@@ -373,10 +384,9 @@ function render() {
     document.getElementById('cart-list').innerHTML = cart.length ? html : '<div style="text-align:center; color:#94a3b8; margin-top:50px;">Empty Cart</div>';
 
     if(cart.length > 0) {
-        // ভ্যাট ক্যালকুলেশন
-        let vat = taxable * (TAX_RATE / 100);
         
-        // সার্ভিস চার্জ ক্যালকুলেশন (শর্ত সাপেক্ষে)
+        let vat = taxable * (TAX_RATE / 100);       
+        
         let sc = 0;
         let scDisplay = '';
 
@@ -387,8 +397,8 @@ function render() {
                     <span>S. Charge (${SC_RATE}%)</span><span>${sc.toFixed(2)}৳</span>
                 </div>`;
         } else {
-            // Take Out হলে সার্ভিস চার্জ ০ দেখাবে অথবা লাইনটি হাইড করে দিবে
-            scDisplay = `
+            
+        scDisplay = `
                 <div style="display:flex; justify-content:space-between; font-size:14px; color:#22c55e; margin-bottom:5px;">
                     <span>S. Charge</span><span>0.00৳ (Take Out)</span>
                 </div>`;
@@ -453,10 +463,8 @@ function placeOrder(grandTotal) {
         },
         success: function(res) {
             if(res.success) { 
-                // ১. সাকসেস পপআপ দেখানো
                 document.getElementById('successPopup').style.display = 'flex';
                 
-                // ২. টাইমার এবং রিলোড লজিক
                 let timeLeft = 3;
                 let timerElement = document.getElementById('timer');
                 let countdown = setInterval(function() {
@@ -464,7 +472,7 @@ function placeOrder(grandTotal) {
                     timerElement.innerText = timeLeft;
                     if(timeLeft <= 0) {
                         clearInterval(countdown);
-                        location.reload(); // পেজ রিলোড হবে
+                        location.reload();
                     }
                 }, 1000);
 
@@ -529,4 +537,41 @@ document.querySelectorAll('.cat-item[data-cat]').forEach(el => {
         });
     }
 });
+
+
+function selectType(t) { 
+    if(t === 'delivery' && !CAN_DELIVERY) {
+        alert('Delivery orders are available in Pro only.');
+        return;
+    }
+    
+    orderMeta.type = t; 
+    if(t === 'dine_in') { 
+        jQuery('#step-type').hide(); 
+        jQuery('#step-table').show(); 
+    } else { 
+        orderMeta.table_id = 0;
+        orderMeta.table_name = (t === 'delivery') ? 'Delivery' : 'Take Out'; 
+        finalizeSelection(); 
+    }
+}
+
+
+if(orderMeta.type === 'dine_in') {
+    sc = sub * (SC_RATE / 100);
+    scDisplay = `
+        <div style="display:flex; justify-content:space-between; font-size:14px; color:#64748b; margin-bottom:5px;">
+            <span>S. Charge (${SC_RATE}%)</span><span>${sc.toFixed(2)}৳</span>
+        </div>`;
+} else if(orderMeta.type === 'delivery') {
+    scDisplay = `
+        <div style="display:flex; justify-content:space-between; font-size:14px; color:#64748b; margin-bottom:5px;">
+            <span>Delivery Charge</span><span>0.00৳</span>
+        </div>`;
+} else {
+    scDisplay = `
+        <div style="display:flex; justify-content:space-between; font-size:14px; color:#22c55e; margin-bottom:5px;">
+            <span>S. Charge</span><span>0.00৳ (Take Out)</span>
+        </div>`;
+}
 </script>

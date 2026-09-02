@@ -182,7 +182,6 @@ function exportStaffExcel() {
 
 function doStaffExcel(table) {
     var clone = table.cloneNode(true);
-    // avatar div সরাও, শুধু name text রাখো
     clone.querySelectorAll('td div[style*="border-radius:50%"]').forEach(function(el) { el.remove(); });
     var wb = XLSX.utils.book_new();
     var ws = XLSX.utils.table_to_sheet(clone);

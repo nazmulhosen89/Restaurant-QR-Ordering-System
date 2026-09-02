@@ -2,7 +2,7 @@
 if (!defined('ABSPATH')) exit;
 
 if ( ! is_user_logged_in() ) {
-    wp_redirect( home_url( '/restaurant-login/' ) ); // আপনার লগইন পেজের স্লাগ দিন
+    wp_redirect( home_url( '/restaurant-login/' ) ); 
     exit;
 }
 
@@ -40,6 +40,7 @@ $sound_url    = QRRS_URL . 'assets/sounds/notification 01.mp3';
                 </div>
             </div>
             <div id="user-dropdown" style="display:none; position:absolute; right:0; top:55px; background:#2d2d2d; min-width:200px; box-shadow:0 10px 30px rgba(0,0,0,0.5); border-radius:10px; z-index:1000; overflow:hidden; border:1px solid #3d3d3d;">
+                <a href="?tab=requisition"><span>INV</span> Requisition</a>
                 <a href="?tab=profile"><span>👤</span> Profile Settings</a>
                 <a href="?tab=orders"><span>🍳</span> Orders View</a>
                 <a href="<?php echo wp_logout_url(home_url('/restaurant-login/')); ?>" style="color:#ff7675;"><span>👋</span> Logout</a>
@@ -54,6 +55,12 @@ $sound_url    = QRRS_URL . 'assets/sounds/notification 01.mp3';
             if (file_exists($profile_path)) include $profile_path;
             ?>
         </div>
+    <?php elseif ($current_tab === 'requisition'): ?>
+        <?php
+        if ( function_exists( 'qrrs_inventory_render_requisition_panel' ) ) {
+            qrrs_inventory_render_requisition_panel( 'kitchen' );
+        }
+        ?>
     <?php else: ?>
         <div class="kitchen-stats">
             <div class="k-stat-box" style="border-color:#00d2d3;"><strong><span id="k-total">0</span></strong><small>Total Orders</small></div>
@@ -146,7 +153,6 @@ function buildItemsHtml(items) {
 
     let finalHtml = originalHtml;
 
-    // Additional items আলাদা section এ দেখাও
     if (hasAdditional) {
         finalHtml += `
             <div class="k-additional-divider">➕ Additional Items</div>
@@ -193,7 +199,6 @@ function loadKitchenOrders() {
         orders.forEach(function(o) {
             const itemsHtml = buildItemsHtml(o.items || []);
 
-            // Card border color: pending=cyan, processing=orange, served/ready=green
             const borderColor = o.raw_status === 'processing' ? '#f39c12'
                               : o.raw_status === 'ready'      ? '#27ae60'
                               : '#00d2d3';

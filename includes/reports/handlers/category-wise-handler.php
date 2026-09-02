@@ -6,6 +6,9 @@ function handle_fetch_category_wise_report() {
     if ( ! isset($_POST['security']) || ! wp_verify_nonce($_POST['security'], 'qrrs_nonce_action') ) {
         wp_send_json_error('Security check failed.');
     }
+    if ( function_exists( 'qrrs_free_report_ajax_guard' ) ) {
+        qrrs_free_report_ajax_guard( 'Category Wise Report' );
+    }
 
     parse_str($_POST['formData'], $params);
     global $wpdb;
@@ -70,7 +73,7 @@ function handle_fetch_category_wise_report() {
 
     $top_cat = $results[0];
 
-    // Colors for chart bars
+    
     $colors = array('#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#6366f1');
 
     ob_start();

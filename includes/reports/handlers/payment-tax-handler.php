@@ -6,6 +6,9 @@ function handle_fetch_payment_report() {
     if ( ! isset($_POST['security']) || ! wp_verify_nonce($_POST['security'], 'qrrs_nonce_action') ) {
         wp_send_json_error('Security check failed.');
     }
+    if ( function_exists( 'qrrs_free_report_ajax_guard' ) ) {
+        qrrs_free_report_ajax_guard( 'Payment Report' );
+    }
 
     parse_str($_POST['formData'], $params);
     global $wpdb;
@@ -450,6 +453,9 @@ function handle_fetch_tax_report() {
     if ( ! isset($_POST['security']) || ! wp_verify_nonce($_POST['security'], 'qrrs_nonce_action') ) {
         wp_send_json_error('Security check failed.');
     }
+    if ( function_exists( 'qrrs_free_report_ajax_guard' ) ) {
+        qrrs_free_report_ajax_guard( 'VAT/Service Report' );
+    }
 
     parse_str($_POST['formData'], $params);
     global $wpdb;
@@ -510,7 +516,6 @@ function handle_fetch_tax_report() {
         $g_grand    += floatval($d->grand_total);
     }
 
-    // Check if VAT/Service is used
     $has_vat     = $g_vat > 0;
     $has_service = $g_service > 0;
 

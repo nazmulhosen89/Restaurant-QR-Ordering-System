@@ -43,7 +43,7 @@ if ( isset($_POST['save_category']) ) {
         'image'         => $image
     ];
 
-    $format = ['%d', '%s', '%s', '%s']; // লাইভ সার্ভারের জন্য ফরম্যাট নির্দিষ্ট করে দেওয়া ভালো
+    $format = ['%d', '%s', '%s', '%s']; 
 
     if ( $edit_id ) {
         $updated = $wpdb->update($cat_table, $data_array, ['id' => $edit_id], $format, ['%d']);
@@ -57,7 +57,6 @@ if ( isset($_POST['save_category']) ) {
             echo "<div class='qrrs-toast success'>Category '$name' created successfully!</div>";
             echo "<script>setTimeout(function(){ window.location.href='?tab=categories'; }, 2000);</script>";
         } else {
-            // লাইভ সার্ভারে এরর দেখার জন্য (ডেবাগিং)
             $db_error = $wpdb->last_error;
             echo "<div class='qrrs-toast error'>DB Error: $db_error</div>";
         }
@@ -129,7 +128,6 @@ if ( isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id'])
 
         <tbody>
             <?php 
-            // শুধুমাত্র বর্তমান রেস্টুরেন্টের ক্যাটাগরিগুলো দেখাবে
             $categories = $wpdb->get_results($wpdb->prepare(
                 "SELECT * FROM $cat_table WHERE restaurant_id = %d ORDER BY id DESC",
                 $active_res_id

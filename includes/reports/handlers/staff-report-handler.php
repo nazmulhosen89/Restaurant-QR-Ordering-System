@@ -5,6 +5,9 @@ function handle_fetch_staff_report() {
     if ( ! isset($_POST['security']) || ! wp_verify_nonce($_POST['security'], 'qrrs_nonce_action') ) {
         wp_send_json_error('Security check failed.');
     }
+    if ( function_exists( 'qrrs_free_report_ajax_guard' ) ) {
+        qrrs_free_report_ajax_guard( 'Staff Report' );
+    }
 
     parse_str($_POST['formData'], $params);
     global $wpdb;

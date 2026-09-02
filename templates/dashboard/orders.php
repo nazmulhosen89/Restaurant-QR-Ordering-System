@@ -53,23 +53,19 @@ let lastOrderCountDash = 0;
 let isMutedDash = false;
 const dashSound = document.getElementById('dashNotificationSound');
 const qr_nonce = '<?php echo wp_create_nonce("qr_order_nonce"); ?>';
-const activeResId = '<?php echo $active_res_id; ?>'; // Pass the active restaurant ID to JS
-
-// рзз. ржЯрж╛ржЗржо ржЖржкржбрзЗржЯ
+const activeResId = '<?php echo $active_res_id; ?>'; 
 setInterval(() => {
     if(document.getElementById('live-clock')) {
         document.getElementById('live-clock').innerText = new Date().toLocaleTimeString() + ' | ' + new Date().toLocaleDateString();
     }
 }, 1000);
 
-// рзи. рж╕рж╛ржЙржирзНржб ржЯржЧрж▓
 jQuery('#dashSoundToggle').click(function() {
     isMutedDash = !isMutedDash;
     jQuery(this).html(isMutedDash ? '<span class="material-icons-outlined">notifications_off</span> Sound Off' : '<span class="material-icons-outlined">notifications_active</span> Sound On').css('background', isMutedDash ? '#f8d7da' : '#fff');
     if(!isMutedDash) dashSound.play().then(() => dashSound.pause());
 });
 
-// рзй. ржбрж╛ржЯрж╛ рж▓рзЛржб ржХрж░рж╛ (Modified to send restaurant_id)
 function loadAllOrders() {
     if(!activeResId) return;
 
@@ -80,7 +76,6 @@ function loadAllOrders() {
     }, function(res) {
         if (!res.success) return;
 
-        // Stats Update
         const s = res.data.stats;
         jQuery('#stat-all-total').text(s.total || 0);
         jQuery('#stat-all-pending').text(s.pending || 0);
@@ -92,7 +87,7 @@ function loadAllOrders() {
 
         const orders = res.data.orders || [];
         
-        // ЁЯФФ Sound Logic
+        
         if (orders.length > lastOrderCountDash && !isMutedDash) {
             dashSound.currentTime = 0;
             dashSound.play().catch(e => console.log('Intervention required'));
@@ -106,7 +101,6 @@ function loadAllOrders() {
             let footerHtml = '';
             let billSummaryHtml = '';
 
-            // ржХржирзНржбрж┐рж╢ржи: served ржмрж╛ рждрж╛рж░ ржкрж░рзЗрж░ рж╕рзНржЯрзНржпрж╛ржЯрж╛рж╕ рж╣рж▓рзЗ ржмрж┐рж▓рзЗрж░ рж╣рж┐рж╕рж╛ржм ржжрзЗржЦрж╛ржмрзЗ
             const showPricing = (o.status === 'served' || o.status === 'billing' || o.status === 'settle_bill');
 
             let itemsProcessedHtml = '';
@@ -116,8 +110,7 @@ function loadAllOrders() {
                     let itemStyle = isAdditional ? 'color: #8b5cf6; font-style: italic;' : 'color: #2d3436;';
                     let additionalLabel = isAdditional ? '<small style="color:#8b5cf6; font-weight:bold;">[ADDITIONAL]</small> ' : '';
                     
-                    // рж╕рзНржЯрзНржпрж╛ржЯрж╛рж╕ ржЕржирзБржпрж╛ржпрж╝рзА ржЖржЗржЯрзЗржорзЗрж░ ржкрзНрж░рж╛ржЗрж╕ ржжрзЗржЦрж╛ржирзЛ
-                    let priceDisplay = showPricing 
+                   let priceDisplay = showPricing 
                         ? `<span style="float:right; font-weight:700; color:#2d3436;">${parseFloat(item.line_total || 0).toFixed(2)}</span>` 
                         : '';
 
@@ -132,12 +125,9 @@ function loadAllOrders() {
                 itemsProcessedHtml = o.items_html;
             }
 
-            // ржмрж┐рж▓ рж╕рж╛ржорж╛рж░рж┐ (Subtotal, VAT, Total) ржжрзЗржЦрж╛ржирзЛ
             if (showPricing) {
-                // ржЖржЧрзЗрж░ ржлрзНрж▓рзЛржЯрж┐ржВ ржХрзНржпрж╛рж▓ржХрзБрж▓рзЗрж╢ржи
                 let rawTotal = parseFloat(o.subtotal || 0) + parseFloat(o.vat_amount || 0) + parseFloat(o.service_charge || 0);
                 
-                // ржЖржкржирж╛рж░ рж░рж┐ржХрзЛрзЯрзЗрж╕рзНржЯ ржЕржирзБржпрж╛рзЯрзА рж░рж╛ржЙржирзНржб ржлрж┐ржЧрж╛рж░ ржХрж░рж╛ (.50 ржПрж░ ржЙржкрж░рзЗ рзз ржпрзЛржЧ рж╣ржмрзЗ, ржирж┐ржЪрзЗ рж╣рж▓рзЗ ржмрж╛ржж ржпрж╛ржмрзЗ)
                 let roundTotal = Math.round(rawTotal); 
                 
                 billSummaryHtml = `
@@ -154,7 +144,6 @@ function loadAllOrders() {
                 `;
             }
 
-            // ржмрж╛ржЯржи рж▓ржЬрж┐ржХ
             if (o.status === 'pending') {
                 footerHtml = `<button onclick="updateDashStatus(${o.id}, 'cancelled')" class="dash-btn btn-cancel">Cancel</button>
                             <button onclick="updateDashStatus(${o.id}, 'processing')" class="dash-btn btn-process"><span class="material-icons-outlined">outdoor_grill</span> Start Cooking</button>`;
@@ -194,10 +183,8 @@ function loadAllOrders() {
 }
 
 function updateDashStatus(id, status) {
-    // পপআপ কনফার্মেশন লাইনটি মুছে ফেলা হয়েছে
     const card = jQuery('#dash-ord-' + id);
     
-    // ইউজারকে ফিডব্যাক দিতে কার্ডটি একটু ঝাপসা করে দেওয়া
     card.css('opacity', '0.5').css('pointer-events', 'none');
 
     jQuery.post('<?php echo admin_url("admin-ajax.php"); ?>', {
@@ -209,7 +196,6 @@ function updateDashStatus(id, status) {
         if(res.success) {
             loadAllOrders();
         } else {
-            // এরর হলে কার্ড আগের অবস্থায় ফিরিয়ে আনা
             card.css('opacity', '1').css('pointer-events', 'auto');
             alert('Failed: ' + (res.data || 'Unknown error'));
         }

@@ -6,7 +6,7 @@ global $wpdb;
 $edit_mode = false;
 $res_data = null;
 
-// 1. Delete Logic
+// 1. Delete
 if ( isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']) ) {
     qrrs_delete_restaurant( intval($_GET['id']) );
     // success-msg replace kore qrrs-toast success kora hoyeche
@@ -19,7 +19,7 @@ if ( isset($_GET['action']) && $_GET['action'] == 'edit' && isset($_GET['id']) )
     $res_data = qrrs_get_restaurant( intval($_GET['id']) );
 }
 
-// 3. Save/Update Logic
+// 3. Save/Update
 if ( isset($_POST['save_restaurant']) ) {
     if ( $edit_mode && isset($_GET['id']) ) {
         // Update existing
@@ -39,9 +39,13 @@ if ( isset($_POST['save_restaurant']) ) {
         }
     } else {
         // Create new
-        $res_id = qrrs_create_restaurant($_POST);
-        if($res_id) {
-            echo "<div class='qrrs-toast success'>Restaurant created successfully!</div>";
+        if ( function_exists( 'qrrs_free_limit_reached' ) && qrrs_free_limit_reached( 'restaurants' ) ) {
+            echo "<div class='qrrs-toast error'>Free version allows only 1 restaurant. Upgrade to Pro to add more restaurants.</div>";
+        } else {
+            $res_id = qrrs_create_restaurant($_POST);
+            if($res_id) {
+                echo "<div class='qrrs-toast success'>Restaurant created successfully!</div>";
+            }
         }
     }
 }
@@ -120,11 +124,16 @@ if ( isset($_POST['save_restaurant']) ) {
             </div>
 
             <div class="form-footer">
-                <button type="submit" name="save_restaurant">
+                <button type="submit" name="save_restaurant" <?php echo ( ! $edit_mode && function_exists( 'qrrs_free_limit_reached' ) && qrrs_free_limit_reached( 'restaurants' ) ) ? 'disabled style="opacity:.55; cursor:not-allowed;"' : ''; ?>>
                     <?php echo $edit_mode ? '<span class="material-icons-outlined">update</span> Update Restaurant' : '<span class="material-icons-outlined">add_task</span> Create Restaurant'; ?>
                 </button>
             </div>
         </form>
+        <?php
+        if ( ! $edit_mode && function_exists( 'qrrs_free_limit_reached' ) && qrrs_free_limit_reached( 'restaurants' ) ) {
+            qrrs_render_upgrade_notice( 'Multiple Restaurants' );
+        }
+        ?>
     </div>
 
 
@@ -150,7 +159,7 @@ if ( isset($_POST['save_restaurant']) ) {
                 </thead>
                 <tbody>
                     <?php 
-                    $all_res = qrrs_get_all_restaurants(); // Amader banano function
+                    $all_res = qrrs_get_all_restaurants(); 
                     if ( !empty($all_res) ) :
                         foreach ( $all_res as $res ) :
                     ?>
@@ -211,7 +220,6 @@ if ( isset($_POST['save_restaurant']) ) {
 
 <script>
 jQuery(document).ready(function($){
-    // Existing Logo Upload Logic...
     $('#upload_logo_btn').click(function(e) {
         e.preventDefault();
         var image = wp.media({ title: 'Select Logo', multiple: false }).open()
@@ -222,14 +230,13 @@ jQuery(document).ready(function($){
         });
     });
 
-    // --- Toast Notification Auto-Hide Logic ---
     if ($('.qrrs-toast').length > 0) {
         setTimeout(function() {
             $('.qrrs-toast').addClass('toast-fade-out');
             setTimeout(function() {
                 $('.qrrs-toast').remove();
-            }, 500); // Animation shesh hole DOM theke remove korbe
-        }, 3000); // 3 second por fade out shuru hobe
+            }, 500);
+        }, 3000);
     }
 });
 </script>

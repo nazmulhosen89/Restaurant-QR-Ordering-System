@@ -13,13 +13,25 @@ global $wpdb;
 // TABLES LIST
 // ==============================
 $tables = [
-    'qrs_restaurants',
-    'qrs_tables',
-    'qrs_categories',
-    'qrs_items',
-    'qrs_orders',
-    'qrs_order_items',
-    'qrs_subscriptions'
+    'qrrs_restaurants',
+    'qrrs_staff',
+    'qrrs_tables',
+    'qrrs_categories',
+    'qrrs_items',
+    'qrrs_orders',
+    'qrrs_order_items',
+    'qrrs_kitchen_sessions',
+    'qrrs_inventory_categories',
+    'qrrs_inventory_units',
+    'qrrs_inventory_items',
+    'qrrs_suppliers',
+    'qrrs_stock_movements',
+    'qrrs_requisitions',
+    'qrrs_requisition_items',
+    'qrrs_recipes',
+    'qrrs_recipe_items',
+    'qrrs_wastage',
+    'qrrs_subscriptions'
 ];
 
 // ==============================
@@ -34,6 +46,8 @@ foreach ($tables as $table) {
 // ==============================
 delete_option('qrs_version');
 delete_option('qrs_settings');
+delete_option('qrrs_plugin_installed_at');
+delete_option('qrrs_inventory_schema_version');
 
 // ==============================
 // DELETE USER META (optional)
@@ -41,6 +55,7 @@ delete_option('qrs_settings');
 $wpdb->query("
     DELETE FROM {$wpdb->usermeta}
     WHERE meta_key LIKE 'qrs_%'
+       OR meta_key LIKE 'qrrs_%'
 ");
 
 // ==============================
