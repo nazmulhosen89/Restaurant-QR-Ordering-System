@@ -115,9 +115,19 @@ $can_use_delivery = function_exists( 'qrrs_can_use_feature' ) ? qrrs_can_use_fea
                         $odata = $occupied_map[$t->table_name] ?? null;
                         $taken_by = $odata ? ($odata->taken_by ?: 'Staff') : 'Customer';
                         $item_count = $odata ? intval($odata->item_count) : 0;
-                        $time_ago = $odata ? human_time_diff(strtotime($odata->created_at), current_time('timestamp')) . ' ago' : '';
+                        
+                        // WordPress Timezone Fix & Placement Time Formatting
+                        if ( $odata ) {
+                            $order_timestamp = strtotime($odata->created_at);
+                            $time_ago        = human_time_diff($order_timestamp, current_time('timestamp')) . ' ago';
+                            $placement_time  = wp_date('h:i A', $order_timestamp); // e.g. 08:43 AM
+                        } else {
+                            $time_ago        = '';
+                            $placement_time  = '';
+                        }
+
                         $grand_total = $odata ? number_format($odata->grand_total, 0) : '0';
-                        $onclick = "showOccupiedAlert('" . esc_js($t->table_name) . "', '" . esc_js($taken_by) . "', '{$item_count}', '{$time_ago}')";
+                        $onclick = "showOccupiedAlert('" . esc_js($t->table_name) . "', '" . esc_js($taken_by) . "', '{$item_count}', '{$time_ago}', '{$placement_time}')";
                     } else {
                         $free_count++;
                         $onclick = "selectTable({$t->id}, '" . esc_js($t->table_name) . "')";
@@ -269,11 +279,23 @@ const CAN_DELIVERY = <?php echo $can_use_delivery ? 'true' : 'false'; ?>;
 
 let cart = [];
 let orderMeta = { type: '', table_id: 0, table_name: '' };
+let deliveryCustomer = null;
+
+function escapeDeliveryField(value) {
+    return String(value || '').replace(/[&<>"']/g, function(character) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character];
+    });
+}
 
 
 function selectType(t) { 
     if(t === 'delivery' && !CAN_DELIVERY) {
         alert('Delivery orders are available in Pro only.');
+        return;
+    }
+
+    if (t === 'delivery') {
+        openDeliveryCustomerForm();
         return;
     }
 
@@ -289,6 +311,44 @@ function selectTable(id, n) { orderMeta.table_id = id; orderMeta.table_name = n;
 function finalizeSelection() { 
     jQuery('#pos-overlay').fadeOut(); 
     jQuery('#order-meta-label').text(orderMeta.table_name); 
+}
+
+function openDeliveryCustomerForm() {
+    document.getElementById('vBody').innerHTML = `
+        <div style="padding:4px;">
+            <h3 style="margin:0 0 8px; color:#1e293b;">Delivery Customer Details</h3>
+            <p style="margin:0 0 16px; color:#64748b; font-size:13px;">Complete these details before creating the delivery order.</p>
+            <label style="display:block; font-size:13px; font-weight:700; margin:10px 0 5px;">Customer Name *</label>
+            <input id="delivery-customer-name" type="text" value="${escapeDeliveryField(deliveryCustomer ? deliveryCustomer.name : '')}" style="width:100%; box-sizing:border-box; padding:11px; border:1px solid #cbd5e1; border-radius:7px;">
+            <label style="display:block; font-size:13px; font-weight:700; margin:10px 0 5px;">Phone Number *</label>
+            <input id="delivery-customer-phone" type="tel" value="${escapeDeliveryField(deliveryCustomer ? deliveryCustomer.phone : '')}" style="width:100%; box-sizing:border-box; padding:11px; border:1px solid #cbd5e1; border-radius:7px;">
+            <label style="display:block; font-size:13px; font-weight:700; margin:10px 0 5px;">Delivery Address *</label>
+            <textarea id="delivery-customer-address" rows="3" style="width:100%; box-sizing:border-box; padding:11px; border:1px solid #cbd5e1; border-radius:7px; resize:vertical;">${escapeDeliveryField(deliveryCustomer ? deliveryCustomer.address : '')}</textarea>
+            <label style="display:block; font-size:13px; font-weight:700; margin:10px 0 5px;">Delivery Note</label>
+            <textarea id="delivery-customer-note" rows="2" style="width:100%; box-sizing:border-box; padding:11px; border:1px solid #cbd5e1; border-radius:7px; resize:vertical;">${escapeDeliveryField(deliveryCustomer ? deliveryCustomer.note : '')}</textarea>
+            <button onclick="confirmDeliveryCustomer()" class="btn-place-order" style="margin-top:15px; width:100%;">Continue to Order</button>
+            <button onclick="closeM()" style="width:100%; background:none; border:none; margin-top:10px; color:#64748b; cursor:pointer;">Cancel</button>
+        </div>`;
+    document.getElementById('vModal').style.display = 'flex';
+}
+
+function confirmDeliveryCustomer() {
+    const name = document.getElementById('delivery-customer-name').value.trim();
+    const phone = document.getElementById('delivery-customer-phone').value.trim();
+    const address = document.getElementById('delivery-customer-address').value.trim();
+    const note = document.getElementById('delivery-customer-note').value.trim();
+
+    if (!name || !phone || !address) {
+        alert('Customer name, phone number, and delivery address are required.');
+        return;
+    }
+
+    deliveryCustomer = { name, phone, address, note };
+    orderMeta.type = 'delivery';
+    orderMeta.table_id = 0;
+    orderMeta.table_name = 'Delivery';
+    closeM();
+    finalizeSelection();
 }
 
 
@@ -396,8 +456,12 @@ function render() {
                 <div style="display:flex; justify-content:space-between; font-size:14px; color:#64748b; margin-bottom:5px;">
                     <span>S. Charge (${SC_RATE}%)</span><span>${sc.toFixed(2)}৳</span>
                 </div>`;
+        } else if (orderMeta.type === 'delivery') {
+            scDisplay = `
+                <div style="display:flex; justify-content:space-between; font-size:14px; color:#64748b; margin-bottom:5px;">
+                    <span>Delivery Charge</span><span>0.00৳</span>
+                </div>`;
         } else {
-            
         scDisplay = `
                 <div style="display:flex; justify-content:space-between; font-size:14px; color:#22c55e; margin-bottom:5px;">
                     <span>S. Charge</span><span>0.00৳ (Take Out)</span>
@@ -454,6 +518,11 @@ function placeOrder(grandTotal) {
             restaurant_id: <?php echo $restaurant_id; ?>,
             table_id: orderMeta.table_id,
             order_type: orderMeta.type,
+            order_source: 'pos',
+            customer_name: deliveryCustomer ? deliveryCustomer.name : '',
+            customer_phone: deliveryCustomer ? deliveryCustomer.phone : '',
+            delivery_address: deliveryCustomer ? deliveryCustomer.address : '',
+            delivery_note: deliveryCustomer ? deliveryCustomer.note : '',
             items: JSON.stringify(processedCart),
             subtotal: sub,
             tax_amount: vatVal,
@@ -496,7 +565,7 @@ function resetOrderBtn(btn) {
 }
 
 
-function showOccupiedAlert(tableName, takenBy, itemCount, timeAgo) {
+function showOccupiedAlert(tableName, takenBy, itemCount, timeAgo, placementTime) {
     document.getElementById('vBody').innerHTML = `
         <div style="text-align:center; padding:10px 0;">
             <div style="font-size:48px; margin-bottom:12px;">🔒</div>
@@ -513,7 +582,7 @@ function showOccupiedAlert(tableName, takenBy, itemCount, timeAgo) {
                 </div>
                 <div style="display:flex; justify-content:space-between;">
                     <span style="color:#64748b; font-size:13px;">🕐 Order Time</span>
-                    <span style="font-weight:700; font-size:13px; color:#1e293b;">${timeAgo}</span>
+                    <span style="font-weight:700; font-size:13px; color:#1e293b;">${placementTime} (${timeAgo})</span>
                 </div>
             </div>
             <button onclick="closeM()" class="btn-place-order" 
@@ -538,40 +607,4 @@ document.querySelectorAll('.cat-item[data-cat]').forEach(el => {
     }
 });
 
-
-function selectType(t) { 
-    if(t === 'delivery' && !CAN_DELIVERY) {
-        alert('Delivery orders are available in Pro only.');
-        return;
-    }
-    
-    orderMeta.type = t; 
-    if(t === 'dine_in') { 
-        jQuery('#step-type').hide(); 
-        jQuery('#step-table').show(); 
-    } else { 
-        orderMeta.table_id = 0;
-        orderMeta.table_name = (t === 'delivery') ? 'Delivery' : 'Take Out'; 
-        finalizeSelection(); 
-    }
-}
-
-
-if(orderMeta.type === 'dine_in') {
-    sc = sub * (SC_RATE / 100);
-    scDisplay = `
-        <div style="display:flex; justify-content:space-between; font-size:14px; color:#64748b; margin-bottom:5px;">
-            <span>S. Charge (${SC_RATE}%)</span><span>${sc.toFixed(2)}৳</span>
-        </div>`;
-} else if(orderMeta.type === 'delivery') {
-    scDisplay = `
-        <div style="display:flex; justify-content:space-between; font-size:14px; color:#64748b; margin-bottom:5px;">
-            <span>Delivery Charge</span><span>0.00৳</span>
-        </div>`;
-} else {
-    scDisplay = `
-        <div style="display:flex; justify-content:space-between; font-size:14px; color:#22c55e; margin-bottom:5px;">
-            <span>S. Charge</span><span>0.00৳ (Take Out)</span>
-        </div>`;
-}
 </script>

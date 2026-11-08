@@ -63,13 +63,13 @@ class QR_Restaurant_System {
     private function maybe_upgrade_database() {
         $schema_version = get_option( 'qrrs_inventory_schema_version' );
 
-        if ( '1.0.0' === $schema_version ) {
+        if ( '1.1.0' === $schema_version ) {
             return;
         }
 
         if ( class_exists( 'QRRS_Database' ) ) {
             QRRS_Database::create_tables();
-            update_option( 'qrrs_inventory_schema_version', '1.0.0' );
+            update_option( 'qrrs_inventory_schema_version', '1.1.0' );
         }
     }
 
@@ -304,12 +304,37 @@ function handle_qr_order_placement() {
     $res_id   = intval($_POST['restaurant_id']);
     $table_id = intval($_POST['table_id']);
     $order_type = sanitize_key( $_POST['order_type'] ?? 'take_out' );
+    $requested_source = sanitize_key( $_POST['order_source'] ?? 'qr' );
     $items    = json_decode(wp_unslash($_POST['items']), true);
 
     if ( empty($items) ) { wp_send_json_error('Cart is empty.'); }
 
+    if ( ! $res_id || ! in_array( $order_type, [ 'dine_in', 'take_out', 'delivery' ], true ) ) {
+        wp_send_json_error( 'Invalid order details.' );
+    }
+
+    $is_pos_order = $requested_source === 'pos'
+        && is_user_logged_in()
+        && function_exists( 'qrrs_current_user_can_operate_restaurant' )
+        && qrrs_current_user_can_operate_restaurant( $res_id );
+    $order_source = $is_pos_order ? 'pos' : 'qr';
+
     if ( 'delivery' === $order_type && function_exists( 'qrrs_can_use_feature' ) && ! qrrs_can_use_feature( 'delivery' ) ) {
         wp_send_json_error( 'Delivery orders are available in Pro only.' );
+    }
+
+    $delivery_customer = [];
+    if ( 'delivery' === $order_type ) {
+        $delivery_customer = [
+            'customer_name'    => sanitize_text_field( $_POST['customer_name'] ?? '' ),
+            'customer_phone'   => sanitize_text_field( $_POST['customer_phone'] ?? '' ),
+            'delivery_address' => sanitize_textarea_field( $_POST['delivery_address'] ?? '' ),
+            'delivery_note'    => sanitize_textarea_field( $_POST['delivery_note'] ?? '' ),
+        ];
+
+        if ( ! $delivery_customer['customer_name'] || ! $delivery_customer['customer_phone'] || ! $delivery_customer['delivery_address'] ) {
+            wp_send_json_error( 'Customer name, phone number, and delivery address are required.' );
+        }
     }
 
     $subtotal       = floatval($_POST['subtotal']);
@@ -328,17 +353,27 @@ function handle_qr_order_placement() {
     
     $wp_timezone = wp_timezone();
     $local_now   = new DateTime('now', $wp_timezone);
+    $kitchen_settings = function_exists( 'qrrs_get_restaurant_kitchen_settings' )
+        ? qrrs_get_restaurant_kitchen_settings( $res_id )
+        : [ 'mode' => 'active_kitchen', 'capacity' => 1 ];
+    $order_status = $order_source === 'qr'
+        ? 'awaiting_verification'
+        : ( $kitchen_settings['mode'] === 'ready_food' ? 'ready' : 'pending' );
+    $verification_status = $order_source === 'qr' ? 'pending' : 'approved';
 
     $order_data = [
         'restaurant_id'  => $res_id,
         'table_name'     => $final_table_name,
         'order_type'     => $order_type,
+        'order_source'   => $order_source,
+        'verification_status' => $verification_status,
         'waiter_id'      => get_current_user_id(),
         'total_amount'   => $subtotal,
         'tax_amount'     => $tax_amount,
         'service_charge' => $service_charge,
         'grand_total'    => $grand_total,
-        'order_status'   => 'pending',
+        'order_status'   => $order_status,
+        'ready_at'       => $order_status === 'ready' ? $local_now->format('Y-m-d H:i:s') : null,
         'payment_status' => 'unpaid',
         'created_at'     => $local_now->format('Y-m-d H:i:s') // 👈 লোকাল ডিভাইস টাইম পুশ করা হলো
     ];
@@ -347,6 +382,23 @@ function handle_qr_order_placement() {
     if ( $inserted === false ) { wp_send_json_error('DB Order Error: ' . $wpdb->last_error); }
 
     $order_id = $wpdb->insert_id;
+
+    if ( $delivery_customer ) {
+        $customer_inserted = $wpdb->insert(
+            $wpdb->prefix . 'qrrs_order_customers',
+            array_merge( [
+                'order_id'      => $order_id,
+                'restaurant_id' => $res_id,
+                'created_at'    => $local_now->format('Y-m-d H:i:s'),
+            ], $delivery_customer ),
+            [ '%d', '%d', '%s', '%s', '%s', '%s', '%s' ]
+        );
+
+        if ( false === $customer_inserted ) {
+            $wpdb->delete( $order_table, [ 'id' => $order_id ], [ '%d' ] );
+            wp_send_json_error( 'Could not save delivery customer details.' );
+        }
+    }
 
     foreach ( $items as $item ) {
         $wpdb->insert($items_table, [
@@ -357,7 +409,7 @@ function handle_qr_order_placement() {
             'variants_selected' => sanitize_text_field($item['variants_selected']),
             'quantity'          => intval($item['qty']),
             'price'             => floatval($item['price']),
-            'item_status'       => 'pending'
+            'item_status'       => $order_status === 'ready' ? 'ready' : 'pending'
         ]);
     }
     wp_send_json_success('Order placed successfully!');

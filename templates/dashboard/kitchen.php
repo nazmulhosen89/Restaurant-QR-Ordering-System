@@ -69,6 +69,7 @@ $sound_url    = QRRS_URL . 'assets/sounds/notification 01.mp3';
             <div class="k-stat-box" style="border-color:#e67e22;"><strong><span id="k-takeaway">0</span></strong><small>Take Away</small></div>
             <div class="k-stat-box" style="border-color:#2ecc71;"><strong><span id="k-completed">0</span></strong><small>Completed</small></div>
             <div class="k-stat-box" style="border-color:#e74c3c;"><strong><span id="k-cancelled">0</span></strong><small>Cancelled</small></div>
+            <div class="k-stat-box" style="border-color:#8b5cf6;"><strong><span id="k-capacity">1</span></strong><small>Kitchen Counters</small></div>
         </div>
         <div id="kitchen-display-grid" class="kitchen-grid"></div>
     <?php endif; ?>
@@ -180,6 +181,7 @@ function loadKitchenOrders() {
         jQuery('#k-takeaway').text(s.take_away || 0);
         jQuery('#k-completed').text(s.complete || 0);
         jQuery('#k-cancelled').text(s.cancel || 0);
+        jQuery('#k-capacity').text(res.data.kitchen_capacity || 1);
 
         const orders = res.data.orders || [];
 
@@ -216,6 +218,9 @@ function loadKitchenOrders() {
                     </div>
                 </div>
                 <div class="k-card-body">
+                    <div style="margin-bottom:10px; padding:8px 10px; border-radius:6px; background:#eff6ff; color:#1d4ed8; font-size:12px; font-weight:700;">
+                        Estimated ready in ${o.estimated_ready_minutes || 0} min
+                    </div>
                     ${itemsHtml}
                 </div>
                 <div class="k-card-footer">

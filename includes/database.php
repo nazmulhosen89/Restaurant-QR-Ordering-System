@@ -25,6 +25,8 @@ class QRRS_Database {
             currency_symbol varchar(10) DEFAULT '$',
             tax_percent decimal(5,2) DEFAULT 0.00,
             service_charge_percent decimal(5,2) DEFAULT 0.00,
+            kitchen_mode varchar(30) DEFAULT 'active_kitchen',
+            kitchen_capacity int(11) DEFAULT 1,
             pos_printer_settings text,
             report_printer_settings text,
             status varchar(20) DEFAULT 'active',
@@ -105,6 +107,10 @@ class QRRS_Database {
             table_id bigint(20) NOT NULL,
             waiter_id bigint(20),
             order_type varchar(20) DEFAULT 'dine_in',
+            order_source varchar(20) DEFAULT 'pos',
+            verification_status varchar(30) DEFAULT 'approved',
+            verified_by bigint(20) DEFAULT 0,
+            verified_at datetime DEFAULT NULL,
             total_amount decimal(10,2) DEFAULT 0.00,
             tax_amount decimal(10,2) DEFAULT 0.00,
             service_charge decimal(10,2) DEFAULT 0.00,
@@ -154,6 +160,24 @@ class QRRS_Database {
             closed_at datetime DEFAULT NULL,
             status varchar(20) DEFAULT 'open',
             PRIMARY KEY (id),
+            KEY restaurant_id (restaurant_id)
+        ) $charset_collate;";
+
+        /**
+         * 9. Delivery customer details are kept separate so only approved
+         * management screens ever query or expose personal delivery data.
+         */
+        $sql_order_customers = "CREATE TABLE {$prefix}order_customers (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            order_id bigint(20) NOT NULL,
+            restaurant_id bigint(20) NOT NULL,
+            customer_name varchar(255) NOT NULL,
+            customer_phone varchar(50) NOT NULL,
+            delivery_address text NOT NULL,
+            delivery_note text,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY order_id (order_id),
             KEY restaurant_id (restaurant_id)
         ) $charset_collate;";
 
@@ -360,6 +384,7 @@ class QRRS_Database {
         dbDelta( $sql_orders );
         dbDelta( $sql_order_items );
         dbDelta( $sql_kitchen_sessions );
+        dbDelta( $sql_order_customers );
         dbDelta( $sql_inventory_categories );
         dbDelta( $sql_inventory_units );
         dbDelta( $sql_inventory_items );
