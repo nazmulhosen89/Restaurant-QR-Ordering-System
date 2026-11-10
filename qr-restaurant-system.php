@@ -1,11 +1,12 @@
 <?php
 /**
- * Plugin Name: NeXt Restro Automation Solutions
- * Description: A fully AI Powred Multi-Restaurant Automation Solutions with QR Ordering, Inventory, POS, and Lifetime Licensing.
- * Version: 1.2.0
+ * Plugin Name: DineX Restro Solutions.
+ * Tagline: Manage Smarter. Serve Faster. Grow Bigger.
+ * Description: Streamline restaurant operations with AI-powered automation. Manage orders, kitchen workflows, inventory, POS, and customer experiences from a single platform.
+ * Version: 1.5.8
  * Author: Nazmul Hosen
  * Links: www.nazmulh.com
- * Text Domain: qr-restaurant-system
+ * Text Domain: dinex-restro-system
  * License: GPLv2 or later
  * License URI: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  */
@@ -317,7 +318,6 @@ function handle_qr_order_placement() {
         wp_send_json_error( 'Invalid order details.' );
     }
 
-<<<<<<< HEAD
     // Server recalculates every line (price, size, add-ons). The browser's prices are not trusted.
     $checked = qrrs_validate_order_items( $res_id, $items );
     if ( is_string( $checked ) ) {
@@ -326,8 +326,6 @@ function handle_qr_order_placement() {
     $items            = $checked['lines'];
     $checked_subtotal = $checked['subtotal'];
 
-=======
->>>>>>> 62d4785085a0d620b3973847c54e1de5461ddd1e
     $is_pos_order = $requested_source === 'pos'
         && is_user_logged_in()
         && function_exists( 'qrrs_current_user_can_operate_restaurant' )
