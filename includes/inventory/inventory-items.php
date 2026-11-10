@@ -11,6 +11,7 @@ if ( ! $restaurant_id ) {
 }
 
 $can_manage = qrrs_inventory_can_manage();
+$is_admin   = qrrs_inventory_is_admin();
 $can_request = qrrs_inventory_can_request();
 $section = isset( $_GET['inv_section'] ) ? sanitize_key( $_GET['inv_section'] ) : 'overview';
 $base_url = home_url( '/restaurant-dashboard/?tab=inventory' );
@@ -30,6 +31,17 @@ if ( ! function_exists( 'qrrs_inventory_redirect' ) ) {
     }
 }
 
+require_once __DIR__ . '/suppliers.php';
+require_once __DIR__ . '/purchases.php';
+require_once __DIR__ . '/wastage.php';
+require_once __DIR__ . '/csv-import.php';
+require_once __DIR__ . '/stock-alerts.php';
+require_once __DIR__ . '/reports.php';
+require_once __DIR__ . '/stocktake.php';
+require_once __DIR__ . '/variant-recipes.php';
+require_once __DIR__ . '/option-setup.php';
+qrrs_supplier_handle_actions( $restaurant_id );
+
 if ( isset( $_POST['qrrs_inventory_action'] ) ) {
     if ( ! isset( $_POST['qrrs_inventory_nonce'] ) || ! wp_verify_nonce( $_POST['qrrs_inventory_nonce'], 'qrrs_inventory_action' ) ) {
         wp_die( 'Security check failed' );
@@ -37,7 +49,7 @@ if ( isset( $_POST['qrrs_inventory_action'] ) ) {
 
     $action = sanitize_key( $_POST['qrrs_inventory_action'] );
 
-    if ( 'save_category' === $action && $can_manage ) {
+    if ( 'save_category' === $action && $is_admin ) {
         $wpdb->insert(
             $cat_table,
             [
@@ -53,7 +65,27 @@ if ( isset( $_POST['qrrs_inventory_action'] ) ) {
         qrrs_inventory_redirect( $wpdb->insert_id ? 'category_saved' : 'error', 'items' );
     }
 
-    if ( 'save_item' === $action && $can_manage ) {
+    if ( in_array( $action, [ 'stocktake_start', 'stocktake_save', 'stocktake_cancel', 'stocktake_finalize' ], true ) ) {
+        qrrs_stocktake_handle_actions( $restaurant_id, $can_manage );
+    }
+
+    if ( in_array( $action, [ 'variant_add_line', 'variant_delete_line' ], true ) ) {
+        qrrs_variant_handle_actions( $restaurant_id, $can_manage );
+    }
+
+    if ( in_array( $action, [ 'opt_add_group', 'opt_add_value', 'opt_delete_value', 'opt_delete_group' ], true ) ) {
+        qrrs_option_handle_actions( $restaurant_id, $is_admin );
+    }
+
+    if ( 'save_purchase' === $action && $can_manage ) {
+        qrrs_purchase_handle_save( $restaurant_id );
+    }
+
+    if ( 'save_purchase_settings' === $action && $can_manage ) {
+        qrrs_purchase_handle_settings( $restaurant_id );
+    }
+
+    if ( 'save_item' === $action && $is_admin ) {
         $edit_id = isset( $_POST['edit_id'] ) ? intval( $_POST['edit_id'] ) : 0;
         $data = [
             'restaurant_id'     => $restaurant_id,
@@ -247,69 +279,8 @@ if ( isset( $_POST['qrrs_inventory_action'] ) ) {
         }
     }
 
-    if ( 'report_wastage' === $action && $can_request ) {
-        $status = $can_manage ? 'approved' : 'pending';
-        $wpdb->insert(
-            $wastage_table,
-            [
-                'restaurant_id'      => $restaurant_id,
-                'inventory_item_id'  => intval( $_POST['inventory_item_id'] ),
-                'quantity'           => floatval( $_POST['quantity'] ),
-                'unit_id'            => intval( $_POST['unit_id'] ),
-                'reason'             => sanitize_text_field( $_POST['reason'] ),
-                'note'               => sanitize_textarea_field( $_POST['note'] ),
-                'status'             => $status,
-                'reported_by'        => get_current_user_id(),
-                'approved_by'        => $can_manage ? get_current_user_id() : 0,
-                'approved_at'        => $can_manage ? current_time( 'mysql' ) : null,
-                'created_at'         => current_time( 'mysql' ),
-            ],
-            [ '%d', '%d', '%f', '%d', '%s', '%s', '%s', '%d', '%d', '%s', '%s' ]
-        );
-
-        $wastage_id = $wpdb->insert_id;
-
-        if ( $wastage_id && $can_manage ) {
-            qrrs_inventory_add_stock_movement( [
-                'restaurant_id'     => $restaurant_id,
-                'inventory_item_id' => intval( $_POST['inventory_item_id'] ),
-                'movement_type'     => 'wastage',
-                'quantity_out'      => floatval( $_POST['quantity'] ),
-                'reference_type'    => 'wastage',
-                'reference_id'      => $wastage_id,
-                'note'              => sanitize_textarea_field( $_POST['reason'] ),
-            ] );
-        }
-
-        qrrs_inventory_redirect( $wastage_id ? 'wastage_saved' : 'error', 'wastage' );
-    }
-
-    if ( 'approve_wastage' === $action && $can_manage ) {
-        $wastage_id = intval( $_POST['wastage_id'] );
-        $wastage = $wpdb->get_row(
-            $wpdb->prepare( "SELECT * FROM $wastage_table WHERE id = %d AND restaurant_id = %d AND status = 'pending'", $wastage_id, $restaurant_id )
-        );
-
-        if ( $wastage ) {
-            $wpdb->update(
-                $wastage_table,
-                [ 'status' => 'approved', 'approved_by' => get_current_user_id(), 'approved_at' => current_time( 'mysql' ) ],
-                [ 'id' => $wastage_id ],
-                [ '%s', '%d', '%s' ],
-                [ '%d' ]
-            );
-            qrrs_inventory_add_stock_movement( [
-                'restaurant_id'     => $restaurant_id,
-                'inventory_item_id' => $wastage->inventory_item_id,
-                'movement_type'     => 'wastage',
-                'quantity_out'      => $wastage->quantity,
-                'reference_type'    => 'wastage',
-                'reference_id'      => $wastage_id,
-                'note'              => $wastage->reason,
-            ] );
-        }
-
-        qrrs_inventory_redirect( $wastage ? 'wastage_approved' : 'error', 'wastage' );
+    if ( in_array( $action, [ 'report_wastage', 'approve_wastage', 'reject_wastage' ], true ) ) {
+        qrrs_wastage_handle_actions( $restaurant_id, $can_request, $can_manage );
     }
 }
 
@@ -332,133 +303,8 @@ $stats = [
 
 
 // --- Handle CSV Import ---
-if ( isset($_POST['import_inventory_csv_action']) ) {
-    if (!isset($_POST['import_csv_nonce_field']) || !wp_verify_nonce($_POST['import_csv_nonce_field'], 'import_csv_nonce')) {
-        wp_die('Security check failed');
-    }
-
-    if ( ! empty( $_FILES['inventory_csv']['tmp_name'] ) ) {
-        global $wpdb;
-
-        $restaurant_id = qrrs_inventory_get_active_restaurant_id();
-        $current_user_id = get_current_user_id();
-
-        // টেবিল ভ্যারিয়েবল সেটআপ (আপনার ডাটাবেজ অনুযায়ী ফিক্সড)
-        $cat_table  = $wpdb->prefix . 'rest_qrrs_inventory_categories';
-        $unit_table = $wpdb->prefix . 'qrrs_inventory_units';
-        $item_table = $wpdb->prefix . 'rest_qrrs_inventory_items';
-
-        $file = $_FILES['inventory_csv']['tmp_name'];
-        $handle = fopen($file, "r");
-
-        if ( $handle !== FALSE ) {
-            // প্রথম হেডার লাইন স্কিপ করা
-            $first_line = fgets($handle);
-            $delimiter = (strpos($first_line, ';') !== false) ? ';' : ',';
-            rewind($handle);
-            fgetcsv($handle, 1000, $delimiter);
-
-            $imported_count = 0;
-
-            while ( ($data = fgetcsv($handle, 1000, $delimiter)) !== FALSE ) {
-                if (empty($data) || (count($data) == 1 && empty($data[0]))) {
-                    continue;
-                }
-                if ( count($data) < 7 ) {
-                    continue; 
-                }
-
-                $item_name     = isset($data[0]) ? sanitize_text_field(trim($data[0])) : '';
-                $cat_name      = isset($data[1]) ? sanitize_text_field(trim($data[1])) : '';
-                $unit_code     = isset($data[2]) ? sanitize_text_field(trim($data[2])) : '';
-                $item_type     = isset($data[3]) ? sanitize_text_field(trim($data[3])) : 'raw_material';
-                $sku           = isset($data[4]) ? sanitize_text_field(trim($data[4])) : '';
-                $cost          = isset($data[5]) ? floatval($data[5]) : 0;
-                $opening_stock = isset($data[6]) ? floatval($data[6]) : 0;
-                $low_stock     = isset($data[7]) ? floatval($data[7]) : 0;
-                $location      = isset($data[8]) ? sanitize_text_field(trim($data[8])) : '';
-
-                if ( empty($item_name) ) {
-                    continue;
-                }
-
-                // ১. ক্যাটাগরি আইডি খোঁজা বা নতুন তৈরি করা
-                $cat_id = 0;
-                if ( ! empty($cat_name) ) {
-                    $cat_id = $wpdb->get_var($wpdb->prepare(
-                        "SELECT id FROM $cat_table WHERE category_name = %s AND restaurant_id = %d", 
-                        $cat_name, $restaurant_id
-                    ));
-
-                    if ( ! $cat_id ) {
-                        $wpdb->insert($cat_table, [
-                            'restaurant_id' => $restaurant_id,
-                            'category_name' => $cat_name,
-                            'category_type' => 'raw_material',
-                            'status'        => 'active',
-                            'created_by'    => $current_user_id
-                        ]);
-                        $cat_id = $wpdb->insert_id;
-                    }
-                }
-
-                // ২. ইউনিট আইডি সেটআপ
-                $unit_id = 0;
-                if ( ! empty($unit_code) ) {
-                    $unit_id = $wpdb->get_var($wpdb->prepare(
-                        "SELECT id FROM $unit_table WHERE unit_code = %s", 
-                        $unit_code
-                    ));
-                }
-                if ( ! $unit_id ) { $unit_id = 1; }
-
-                // ৩. আইটেম ইনসার্ট লজিক (inv_category_id কলাম নেম দিয়ে)
-                $insert_item = $wpdb->insert($item_table, [
-                    'restaurant_id'   => $restaurant_id,
-                    'inv_category_id' => intval($cat_id),      // আপনার নতুন রিকোয়ারমেন্ট কলাম নেম
-                    'unit_id'         => intval($unit_id),
-                    'item_name'       => $item_name,
-                    'item_type'       => $item_type,
-                    'sku'             => $sku,
-                    'current_stock'   => floatval($opening_stock),
-                    'min_stock_level' => floatval($low_stock),
-                    'cost_per_unit'   => floatval($cost),
-                    'storage_location'=> $location,
-                    'status'          => 'active',
-                    'created_by'      => $current_user_id
-                ]);
-
-                if ( $insert_item !== false ) {
-                    $new_item_id = $wpdb->insert_id;
-
-                    // ৪. স্টক মুভমেন্ট লেজার এন্ট্রি
-                    if ( $new_item_id && $opening_stock > 0 ) {
-                        $wpdb->insert($wpdb->prefix . 'qrrs_stock_movements', [
-                            'restaurant_id'  => $restaurant_id,
-                            'item_id'        => $new_item_id,
-                            'movement_type'  => 'in',
-                            'quantity'       => floatval($opening_stock),
-                            'unit_cost'      => floatval($cost),
-                            'total_amount'   => floatval($opening_stock * $cost),
-                            'reference_type' => 'Opening Stock',
-                            'reference_id'   => 0,
-                            'note'           => 'Imported via CSV Sheet',
-                            'created_by'     => $current_user_id
-                        ]);
-                    }
-                    $imported_count++;
-                }
-            }
-            fclose($handle);
-            
-            if ($imported_count > 0) {
-                wp_safe_redirect($base_url . '&status=csv_imported&count=' . $imported_count);
-                exit;
-            } else {
-                echo "<div style='background:#fef3c7; color:#b45309; padding:15px; border-radius:5px; margin-top:20px; font-weight:bold;'>No items were imported.</div>";
-            }
-        }
-    }
+if ( isset( $_POST['import_inventory_csv_action'] ) && $is_admin ) {
+    qrrs_csv_handle_import( $restaurant_id );
 }
 ?>
 
@@ -503,6 +349,11 @@ if ( isset($_POST['import_inventory_csv_action']) ) {
     $tabs = [
         'overview'     => 'Overview',
         'items'        => 'Raw Materials',
+        'suppliers'    => 'Suppliers',
+        'reports'      => 'Reports',
+        'stocktake'    => 'Stocktake',
+        'variant-recipes' => 'Variant Recipes',
+        'menu-options' => 'Menu Options',
         'stock-in'     => 'Stock In',
         'stock-out'    => 'Stock Out',
         'requisitions' => 'Requisitions',
@@ -523,127 +374,6 @@ if ( isset($_POST['import_inventory_csv_action']) ) {
 
 
 
-if ( isset($_POST['import_inventory_csv_action']) ) {
-    if (!isset($_POST['import_csv_nonce_field']) || !wp_verify_nonce($_POST['import_csv_nonce_field'], 'import_csv_nonce')) {
-        wp_die('Security check failed');
-    }
-
-    if ( ! empty( $_FILES['inventory_csv']['tmp_name'] ) ) {
-        global $wpdb;
-
-        $restaurant_id = qrrs_inventory_get_active_restaurant_id();
-        $current_user_id = get_current_user_id();
-
-        $file = $_FILES['inventory_csv']['tmp_name'];
-        $handle = fopen($file, "r");
-
-        if ( $handle !== FALSE ) {
-            // First header line bad deya
-            $first_line = fgets($handle);
-            $delimiter = (strpos($first_line, ';') !== false) ? ';' : ',';
-            rewind($handle);
-            fgetcsv($handle, 1000, $delimiter);
-
-            $imported_count = 0;
-
-            while ( ($data = fgetcsv($handle, 1000, $delimiter)) !== FALSE ) {
-                if (empty($data) || (count($data) == 1 && empty($data[0]))) {
-                    continue;
-                }
-                if ( count($data) < 7 ) {
-                    continue; 
-                }
-
-                $item_name     = isset($data[0]) ? sanitize_text_field(trim($data[0])) : '';
-                $cat_name      = isset($data[1]) ? sanitize_text_field(trim($data[1])) : '';
-                $unit_code     = isset($data[2]) ? sanitize_text_field(trim($data[2])) : '';
-                $item_type     = isset($data[3]) ? sanitize_text_field(trim($data[3])) : 'raw';
-                $sku           = isset($data[4]) ? sanitize_text_field(trim($data[4])) : '';
-                $cost          = isset($data[5]) ? floatval($data[5]) : 0;
-                $opening_stock = isset($data[6]) ? floatval($data[6]) : 0;
-                $low_stock     = isset($data[7]) ? floatval($data[7]) : 0;
-                $location      = isset($data[8]) ? sanitize_text_field(trim($data[8])) : '';
-
-                if ( empty($item_name) ) {
-                    continue;
-                }
-
-                // 1. Inventory Category Management (Apnar database exact schema 'category_name' onusare)
-                $cat_id = 0;
-                if ( ! empty($cat_name) ) {
-                    $cat_id = $wpdb->get_var($wpdb->prepare(
-                        "SELECT id FROM {$wpdb->prefix}qrrs_inventory_categories WHERE category_name = %s AND restaurant_id = %d", 
-                        $cat_name, $restaurant_id
-                    ));
-
-                    // Jodi category na thake, tobe new inventory category create hobe
-                    if ( ! $cat_id ) {
-                        $wpdb->insert($wpdb->prefix . 'qrrs_inventory_categories', [
-                            'restaurant_id' => $restaurant_id,
-                            'category_name' => $cat_name
-                        ]);
-                        $cat_id = $wpdb->insert_id;
-                    }
-                }
-
-                // 2. Unit Management
-                $unit_id = 0;
-                if ( ! empty($unit_code) ) {
-                    $unit_id = $wpdb->get_var($wpdb->prepare(
-                        "SELECT id FROM {$wpdb->prefix}qrrs_inventory_units WHERE unit_code = %s", 
-                        $unit_code
-                    ));
-                }
-                if ( ! $unit_id ) { $unit_id = 1; } // Default fall-back unit id
-
-                // 3. Inventory Items table-e perfect float casting shoho data insert করা
-                $insert_item = $wpdb->insert($wpdb->prefix . 'qrrs_inventory_items', [
-                    'restaurant_id'   => $restaurant_id,
-                    'inv_category_id' => intval($cat_id),
-                    'item_name'       => $item_name,
-                    'unit_id'         => intval($unit_id),
-                    'current_stock'   => floatval($opening_stock),
-                    'cost_per_unit'   => floatval($cost),
-                    'item_type'       => $item_type,
-                    'sku'             => $sku,
-                    'reorder_level'   => floatval($low_stock),
-                    'storage_location'=> $location,
-                    'created_by'      => $current_user_id,
-                    'status'          => 'active'
-                ]);
-
-                if ( $insert_item !== false ) {
-                    $new_item_id = $wpdb->insert_id;
-
-                    // 4. Stock Movement Ledger Ledger handling
-                    if ( $new_item_id && $opening_stock > 0 ) {
-                        $wpdb->insert($wpdb->prefix . 'qrrs_stock_movements', [
-                            'restaurant_id'  => $restaurant_id,
-                            'item_id'        => $new_item_id,
-                            'movement_type'  => 'in',
-                            'quantity'       => floatval($opening_stock),
-                            'unit_cost'      => floatval($cost),
-                            'total_amount'   => floatval($opening_stock * $cost),
-                            'reference_type' => 'Opening Stock',
-                            'reference_id'   => 0,
-                            'note'           => 'Imported via CSV Sheet',
-                            'created_by'     => $current_user_id
-                        ]);
-                    }
-                    $imported_count++;
-                }
-            }
-            fclose($handle);
-            
-            if ($imported_count > 0) {
-                wp_safe_redirect($base_url . '&status=csv_imported&count=' . $imported_count);
-                exit;
-            } else {
-                echo "<div style='background:#fef3c7; color:#b45309; padding:15px; border-radius:5px; margin-top:20px; font-weight:bold;'>No items were imported. Please check your CSV file column names match.</div>";
-            }
-        }
-    }
-}
 
     ?>
 </div>
@@ -655,7 +385,27 @@ if ( isset($_POST['import_inventory_csv_action']) ) {
     <div class="qrrs-inv-stat"><strong><?php echo esc_html( $stats['waste'] ); ?></strong><span>Pending Wastage</span></div>
 </div>
 
+<?php qrrs_stock_alert_banner( $restaurant_id, $section ); ?>
 <?php if ( 'overview' === $section ) : ?>
+    <?php
+    $pset = qrrs_purchase_get_settings( $restaurant_id );
+    if ( isset( $_GET['status'] ) && 'purchase_settings_saved' === $_GET['status'] ) :
+    ?>
+        <div style="background:#dcfce7; color:#166534; padding:10px 14px; border-radius:6px; margin-bottom:12px;">Purchase settings saved.</div>
+    <?php endif; ?>
+    <?php if ( $can_manage ) : ?>
+    <div class="qrrs-card" style="padding:20px; margin-bottom:20px;">
+        <h3>Purchase Settings</h3>
+        <form method="post">
+            <?php wp_nonce_field( 'qrrs_inventory_action', 'qrrs_inventory_nonce' ); ?>
+            <input type="hidden" name="qrrs_inventory_action" value="save_purchase_settings">
+            <label style="font-weight:600;">Bill attachment required above (৳)</label><br>
+            <input type="number" step="0.01" min="0" name="attachment_threshold" value="<?php echo esc_attr( $pset['attachment_threshold'] ); ?>" style="margin:8px 0; padding:6px 10px; width:200px;">
+            <p style="color:#64748b; font-size:12px; margin:4px 0 12px;">Purchases above this total must have a bill (JPG, PNG or PDF, max 5 MB). Below it, the bill is optional.</p>
+            <button type="submit" class="qrrs-btn-save">Save Settings</button>
+        </form>
+    </div>
+    <?php endif; ?>
     <div class="qrrs-card" style="padding:20px;">
         <h3>Inventory Overview</h3>
         <p>Start with categories and raw materials, then record stock in/out. Kitchen and waiter staff can submit requisitions from this module.</p>
@@ -666,8 +416,10 @@ if ( isset($_POST['import_inventory_csv_action']) ) {
     </div>
 <?php endif; ?>
 
+<?php if ( 'suppliers' === $section ) { qrrs_supplier_render( $restaurant_id, $can_manage ); } ?>
+
 <?php if ( 'items' === $section ) : ?>
-    <?php if ( $can_manage ) : ?>
+    <?php if ( $is_admin ) : ?>
         <div class="qrrs-card" style="padding:20px; margin-bottom:20px;">
             <h3><?php echo $edit_item ? 'Edit Inventory Item' : 'Add Inventory Item'; ?></h3>
             <form method="post">
@@ -738,26 +490,9 @@ if ( isset($_POST['import_inventory_csv_action']) ) {
             </form>
         </div>
 
-<div style="background:#fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 25px;">
-    <h3 style="margin-top:0; color:#1e293b;">📥 Bulk Import Items via Excel/CSV</h3>
-    <p style="font-size:13px; color:#64748b; margin-bottom:15px;">
-        Excel sheet-e nicher kram onujayi data likhe setake <strong>.csv</strong> format-e save kore ekhane upload korun. <br>
-        <code>Format: Item Name, Category, Unit, Type, SKU, Cost Per Unit, Opening Stock, Low Stock, Location</code>
-    </p>
+<?php if ( $is_admin ) { qrrs_csv_render_panel(); } ?>
 
-    <form method="POST" action="" enctype="multipart/form-data" style="display:flex; gap:15px; align-items:center; flex-wrap:wrap;">
-        <?php wp_nonce_field('import_csv_nonce', 'import_csv_nonce_field'); ?>
-        
-        <div style="flex: 1; min-width: 250px;">
-            <input type="file" name="inventory_csv" accept=".csv" required style="width:100%; padding:8px; border:1px solid #cbd5e1; background:#f8fafc; border-radius:4px;">
-        </div>
-        
-        <button type="submit" name="import_inventory_csv_action" class="button button-primary" style="padding:8px 20px; font-weight:bold; background:#2563eb; color:#fff; border:none; border-radius:4px; cursor:pointer;">
-            🚀 Start Bulk Import
-        </button>
-    </form>
-</div>
-
+<?php if ( $is_admin ) : ?>
         <div class="qrrs-card" style="padding:20px; margin-bottom:20px;">
             <h3>Add Category</h3>
             <form method="post" class="qrrs-inv-actions">
@@ -773,6 +508,7 @@ if ( isset($_POST['import_inventory_csv_action']) ) {
                 <button class="qrrs-inv-btn secondary" type="submit">Add Category</button>
             </form>
         </div>
+<?php endif; ?>
     <?php endif; ?>
 
     <div class="qrrs-card" style="padding:20px;">
@@ -788,7 +524,7 @@ $items = $wpdb->get_results(
     $wpdb->prepare(
         "SELECT i.*, c.category_name, u.unit_code 
          FROM $item_table i
-         LEFT JOIN $cat_table c ON i.inv_category_id = c.id
+         LEFT JOIN $cat_table c ON i.category_id = c.id
          LEFT JOIN $unit_table u ON i.unit_id = u.id
          WHERE i.restaurant_id = %d 
          ORDER BY i.id DESC",
@@ -796,6 +532,7 @@ $items = $wpdb->get_results(
     )
 );
 ?>
+
         <table class="qrrs-table" style="width:100%; border-collapse: collapse; margin-top:15px;">
     <thead>
         <tr style="background:#f1f5f9; text-align:left;">
@@ -806,7 +543,7 @@ $items = $wpdb->get_results(
             <th>Current Stock</th>
             <th>Cost/Unit</th>
             <th>Status</th>
-            <?php if ( $can_manage ) : ?><th>Actions</th><?php endif; ?>
+            <?php if ( $is_admin ) : ?><th>Actions</th><?php endif; ?>
         </tr>
     </thead>
     <tbody>
@@ -827,6 +564,8 @@ $items = $wpdb->get_results(
         }
     ?>
         <tr style="border-bottom: 1px solid #e2e8f0;">
+            <?php if ( $can_manage ) : ?>
+            <?php endif; ?>
             <td style="font-weight:600; color:#1e293b;"><?php echo esc_html( $item->item_name ); ?></td>
             
             <td style="color:#475569;">
@@ -841,26 +580,32 @@ $items = $wpdb->get_results(
             </td>
             
             <td><?php echo esc_html( number_format($cost_per_unit, 2) ); ?></td>
-            <td><?php echo $stock_status_html; ?></td>
-            
-            <?php if ( $can_manage ) : ?>
             <td>
-                <a href="<?php echo esc_url( add_query_arg(['action' => 'edit_item', 'id' => $item->id], $base_url) ); ?>" class="button" style="padding:2px 8px; font-size:12px;">Edit</a>
-                <a href="<?php echo wp_nonce_url( add_query_arg(['action' => 'delete_item', 'id' => $item->id], $base_url), 'delete_item_nonce' ); ?>" class="button button-link-delete" onclick="return confirm('Are you sure?');" style="padding:2px 8px; font-size:12px; color:#dc2626;">Delete</a>
+                <?php if ( 'active' === ( $item->status ?? 'active' ) ) : ?>
+                    <span style="background:#dcfce7; color:#166534; padding:3px 10px; border-radius:10px; font-size:12px; font-weight:bold;">Active</span>
+                <?php else : ?>
+                    <span style="background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:10px; font-size:12px; font-weight:bold;">Inactive</span>
+                <?php endif; ?>
+            </td>
+            
+            <?php if ( $is_admin ) : ?>
+            <td>
+                <a href="<?php echo esc_url( add_query_arg( [ 'tab' => 'inventory', 'inv_section' => 'items', 'edit_inventory_item' => $item->id ], home_url( '/restaurant-dashboard/' ) ) ); ?>" class="button" style="padding:2px 8px; font-size:12px;">Edit</a>
             </td>
             <?php endif; ?>
         </tr>
     <?php endforeach; ?>
     
     <?php if ( empty( $items ) ) : ?>
-        <tr><td colspan="8" style="text-align:center; padding:30px; color:#94a3b8;">No inventory items found.</td></tr>
+        <tr><td colspan="9" style="text-align:center; padding:30px; color:#94a3b8;">No inventory items found.</td></tr>
     <?php endif; ?>
     </tbody>
 </table>
     </div>
 <?php endif; ?>
 
-<?php if ( in_array( $section, [ 'stock-in', 'stock-out' ], true ) ) : ?>
+<?php if ( 'stock-in' === $section ) { qrrs_purchase_render_form( $restaurant_id, $can_manage ); } ?>
+<?php if ( 'stock-out' === $section ) : ?>
     <div class="qrrs-card" style="padding:20px;">
         <h3><?php echo 'stock-in' === $section ? 'Stock In / Purchase' : 'Stock Out / Manual Issue'; ?></h3>
         <?php if ( $can_manage ) : ?>
@@ -999,112 +744,17 @@ $items = $wpdb->get_results(
     </div>
 <?php endif; ?>
 
-<?php if ( 'wastage' === $section ) : ?>
-    <div class="qrrs-card" style="padding:20px; margin-bottom:20px;">
-        <h3>Report Wastage</h3>
-        <form method="post">
-            <?php wp_nonce_field( 'qrrs_inventory_action', 'qrrs_inventory_nonce' ); ?>
-            <input type="hidden" name="qrrs_inventory_action" value="report_wastage">
-            <div class="qrrs-inv-form-grid">
-                <div class="qrrs-inv-field">
-                    <label>Item</label>
-                    <select name="inventory_item_id" id="qrrs-wastage-item" required>
-                        <?php foreach ( $active_items as $item ) : ?>
-                            <option value="<?php echo esc_attr( $item->id ); ?>" data-unit="<?php echo esc_attr( $item->unit_id ); ?>"><?php echo esc_html( $item->item_name . ' - Stock: ' . $item->current_stock . ' ' . $item->unit_code ); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="qrrs-inv-field"><label>Quantity</label><input type="number" step="0.0001" name="quantity" required></div>
-                <div class="qrrs-inv-field">
-                    <label>Unit</label>
-                    <select name="unit_id">
-                        <?php foreach ( $units as $unit ) : ?><option value="<?php echo esc_attr( $unit->id ); ?>"><?php echo esc_html( $unit->unit_name ); ?></option><?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="qrrs-inv-field"><label>Reason</label><input type="text" name="reason" required></div>
-                <div class="qrrs-inv-field full"><label>Note</label><textarea name="note" rows="2"></textarea></div>
-            </div>
-            <p><button class="qrrs-inv-btn" type="submit">Save Wastage</button></p>
-        </form>
-    </div>
+<?php if ( 'wastage' === $section ) { qrrs_wastage_render( $restaurant_id, $can_request, $can_manage ); } ?>
 
-    <div class="qrrs-card" style="padding:20px;">
-        <h3>Wastage List</h3>
-        <?php
-        $wastage_rows = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT w.*, i.item_name, u.unit_code, usr.display_name
-                 FROM $wastage_table w
-                 LEFT JOIN $item_table i ON w.inventory_item_id = i.id
-                 LEFT JOIN $unit_table u ON w.unit_id = u.id
-                 LEFT JOIN {$wpdb->users} usr ON w.reported_by = usr.ID
-                 WHERE w.restaurant_id = %d
-                 ORDER BY w.id DESC LIMIT 50",
-                $restaurant_id
-            )
-        );
-        ?>
-        <table class="qrrs-table">
-            <thead><tr><th>Item</th><th>Qty</th><th>Reason</th><th>By</th><th>Status</th><th>Action</th></tr></thead>
-            <tbody>
-            <?php foreach ( $wastage_rows as $waste ) : ?>
-                <tr>
-                    <td><?php echo esc_html( $waste->item_name ); ?></td>
-                    <td><?php echo esc_html( $waste->quantity . ' ' . $waste->unit_code ); ?></td>
-                    <td><?php echo esc_html( $waste->reason ); ?></td>
-                    <td><?php echo esc_html( $waste->display_name ?: $waste->reported_by ); ?></td>
-                    <td><strong><?php echo esc_html( $waste->status ); ?></strong></td>
-                    <td>
-                        <?php if ( $can_manage && 'pending' === $waste->status ) : ?>
-                            <form method="post">
-                                <?php wp_nonce_field( 'qrrs_inventory_action', 'qrrs_inventory_nonce' ); ?>
-                                <input type="hidden" name="qrrs_inventory_action" value="approve_wastage">
-                                <input type="hidden" name="wastage_id" value="<?php echo esc_attr( $waste->id ); ?>">
-                                <button class="qrrs-inv-btn secondary" type="submit">Approve</button>
-                            </form>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-            <?php if ( empty( $wastage_rows ) ) : ?><tr><td colspan="6" style="text-align:center;">No wastage records found.</td></tr><?php endif; ?>
-            </tbody>
-        </table>
-    </div>
-<?php endif; ?>
+<?php if ( 'reports' === $section ) { qrrs_reports_render( $restaurant_id, $can_manage ); } ?>
 
-<?php if ( 'low-stock' === $section ) : ?>
-    <div class="qrrs-card" style="padding:20px;">
-        <h3>Low Stock Alert</h3>
-        <?php
-        $low_items = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT i.*, u.unit_code, c.category_name
-                 FROM $item_table i
-                 LEFT JOIN $unit_table u ON i.unit_id = u.id
-                 LEFT JOIN $cat_table c ON i.category_id = c.id
-                 WHERE i.restaurant_id = %d AND i.status = 'active' AND i.current_stock <= i.min_stock_level
-                 ORDER BY i.current_stock ASC",
-                $restaurant_id
-            )
-        );
-        ?>
-        <table class="qrrs-table">
-            <thead><tr><th>Item</th><th>Category</th><th>Current</th><th>Min Level</th><th>Need</th></tr></thead>
-            <tbody>
-            <?php foreach ( $low_items as $item ) : ?>
-                <tr>
-                    <td><strong><?php echo esc_html( $item->item_name ); ?></strong></td>
-                    <td><?php echo esc_html( $item->category_name ?: '-' ); ?></td>
-                    <td class="qrrs-low"><?php echo esc_html( $item->current_stock . ' ' . $item->unit_code ); ?></td>
-                    <td><?php echo esc_html( $item->min_stock_level . ' ' . $item->unit_code ); ?></td>
-                    <td><?php echo esc_html( max( 0, $item->min_stock_level - $item->current_stock ) . ' ' . $item->unit_code ); ?></td>
-                </tr>
-            <?php endforeach; ?>
-            <?php if ( empty( $low_items ) ) : ?><tr><td colspan="5" style="text-align:center;">No low stock items right now.</td></tr><?php endif; ?>
-            </tbody>
-        </table>
-    </div>
-<?php endif; ?>
+<?php if ( 'stocktake' === $section ) { qrrs_stocktake_render( $restaurant_id, $can_manage ); } ?>
+
+<?php if ( 'variant-recipes' === $section ) { qrrs_variant_render( $restaurant_id, $can_manage ); } ?>
+
+<?php if ( 'menu-options' === $section ) { qrrs_option_render( $restaurant_id, $is_admin ); } ?>
+
+<?php if ( 'low-stock' === $section ) { qrrs_low_stock_render( $restaurant_id ); } ?>
 
 <?php if ( 'ledger' === $section ) : ?>
     <div class="qrrs-card" style="padding:20px;">

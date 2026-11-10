@@ -112,6 +112,11 @@ function qrrs_submit_waiter_order() {
 
         if (!$table_name || !$restaurant_id) { wp_send_json_error('Missing info.'); return; }
 
+        $kitchen_settings = function_exists( 'qrrs_get_restaurant_kitchen_settings' )
+            ? qrrs_get_restaurant_kitchen_settings( $restaurant_id )
+            : [ 'mode' => 'active_kitchen' ];
+        $initial_status = $kitchen_settings['mode'] === 'ready_food' ? 'ready' : 'pending';
+
 
         $wp_timezone     = wp_timezone(); 
         $local_datetime  = new DateTime('now', $wp_timezone);
@@ -124,7 +129,8 @@ function qrrs_submit_waiter_order() {
             'tax_amount'     => $tax_amount,
             'service_charge' => $service_charge,
             'grand_total'    => $grand_total,
-            'order_status'   => 'pending',
+            'order_status'   => $initial_status,
+            'ready_at'       => $initial_status === 'ready' ? $exact_local_time : null,
             'payment_status' => 'unpaid',
             'created_at'     => $exact_local_time,             
             'waiter_id'      => get_current_user_id(),
@@ -140,7 +146,7 @@ function qrrs_submit_waiter_order() {
                 'price'             => floatval($item['price']),
                 'quantity'          => intval($item['qty']),
                 'variants_selected' => sanitize_text_field($item['variants_selected'] ?? ''),
-                'item_status'       => 'pending',
+                'item_status'       => $initial_status === 'ready' ? 'ready' : 'pending',
                 'item_type'         => 'original',
                 'restaurant_id'     => $restaurant_id,
             ]);

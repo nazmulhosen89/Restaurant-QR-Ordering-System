@@ -33,6 +33,7 @@ if ( current_user_can('administrator') ) {
         <div class="orders-stats-grid">
             <div class="stat-card" style="border-color:#34495e;"><small>Total</small><strong id="stat-all-total">0</strong></div>
             <div class="stat-card" style="border-color:#3498db;"><small>Pending</small><strong id="stat-all-pending">0</strong></div>
+            <div class="stat-card" style="border-color:#7c3aed;"><small>QR Review</small><strong id="stat-all-verification">0</strong></div>
             <div class="stat-card" style="border-color:#f39c12;"><small>Kitchen</small><strong id="stat-all-preparing">0</strong></div>
             <div class="stat-card" style="border-color:#9b59b6;"><small>Served</small><strong id="stat-all-served">0</strong></div>
             <div class="stat-card" style="border-color:#d35400;"><small>Billing</small><strong id="stat-all-settling">0</strong></div>
@@ -79,6 +80,7 @@ function loadAllOrders() {
         const s = res.data.stats;
         jQuery('#stat-all-total').text(s.total || 0);
         jQuery('#stat-all-pending').text(s.pending || 0);
+        jQuery('#stat-all-verification').text(s.awaiting_verification || 0);
         jQuery('#stat-all-preparing').text(s.preparing || 0);
         jQuery('#stat-all-served').text(s.served || 0);
         jQuery('#stat-all-settling').text(s.settling || 0);
@@ -86,6 +88,7 @@ function loadAllOrders() {
         jQuery('#stat-all-cancelled').text(s.cancelled || 0);
 
         const orders = res.data.orders || [];
+        const kitchenMode = res.data.kitchen_mode || 'active_kitchen';
         
         
         if (orders.length > lastOrderCountDash && !isMutedDash) {
@@ -100,6 +103,7 @@ function loadAllOrders() {
             let badgeClass = 'badge-' + o.status;
             let footerHtml = '';
             let billSummaryHtml = '';
+            let deliveryCustomerHtml = '';
 
             const showPricing = (o.status === 'served' || o.status === 'billing' || o.status === 'settle_bill');
 
@@ -144,9 +148,28 @@ function loadAllOrders() {
                 `;
             }
 
-            if (o.status === 'pending') {
+            if (o.delivery_customer) {
+                const customer = o.delivery_customer;
+                deliveryCustomerHtml = `
+                    <div style="margin-top:12px; padding:12px; border:1px solid #bfdbfe; border-radius:8px; background:#eff6ff; font-size:13px; color:#1e3a8a;">
+                        <strong>Delivery customer</strong><br>
+                        ${escapeHtml(customer.name)} | ${escapeHtml(customer.phone)}<br>
+                        <span style="display:block; margin-top:4px; white-space:pre-line;">${escapeHtml(customer.address)}</span>
+                        ${customer.note ? `<small style="display:block; margin-top:5px; color:#475569;">Note: ${escapeHtml(customer.note)}</small>` : ''}
+                    </div>`;
+            }
+
+            if (o.status === 'awaiting_verification') {
+                footerHtml = `<button onclick="reviewQrOrder(${o.id}, 'cancel')" class="dash-btn btn-cancel">Cancel</button>
+                              <button onclick="reviewQrOrder(${o.id}, 'approve')" class="dash-btn btn-process"><span class="material-icons-outlined">verified</span> Accept QR Order</button>`;
+            } else if (o.status === 'pending') {
+                if (kitchenMode === 'ready_food') {
+                    footerHtml = `<button onclick="updateDashStatus(${o.id}, 'cancelled')" class="dash-btn btn-cancel">Cancel</button>
+                                  <button onclick="updateDashStatus(${o.id}, 'ready')" class="dash-btn btn-ready"><span class="material-icons-outlined">check_box</span> Mark Ready</button>`;
+                } else {
                 footerHtml = `<button onclick="updateDashStatus(${o.id}, 'cancelled')" class="dash-btn btn-cancel">Cancel</button>
                             <button onclick="updateDashStatus(${o.id}, 'processing')" class="dash-btn btn-process"><span class="material-icons-outlined">outdoor_grill</span> Start Cooking</button>`;
+                }
             } else if (o.status === 'processing') {
                 footerHtml = `<button onclick="updateDashStatus(${o.id}, 'ready')" class="dash-btn btn-ready" style="width:100%"><span class="material-icons-outlined">check_box</span> Order Ready</button>`;
             } else if (o.status === 'ready') {
@@ -162,7 +185,7 @@ function loadAllOrders() {
                 <div class="card-head">
                     <div>
                         <strong style="font-size:18px; color:#2d3436;">${o.table_name}</strong><br>
-                        <small style="color:#888; font-weight:600;">#ORD-${o.id} • ${o.time_ago}</small>
+                        <small style="color:#888; font-weight:600;">#ORD-${o.id} • ${o.placement_time} (${o.time_ago})</small>
                     </div>
                     <span class="status-badge ${badgeClass}">${o.status.replace('_', ' ')}</span>
                 </div>
@@ -171,6 +194,7 @@ function loadAllOrders() {
                         ${itemsProcessedHtml}
                     </div>
                     ${billSummaryHtml}
+                    ${deliveryCustomerHtml}
                 </div>
                 <div class="card-footer" style="display:flex;">
                     ${footerHtml}
@@ -179,6 +203,31 @@ function loadAllOrders() {
         });
 
         jQuery('#orders-display-grid').html(html || '<div style="grid-column:1/-1;text-align:center;padding:100px;">No active orders.</div>');
+    });
+}
+
+function escapeHtml(value) {
+    return String(value || '').replace(/[&<>'"]/g, function(character) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' })[character];
+    });
+}
+
+function reviewQrOrder(id, decision) {
+    const card = jQuery('#dash-ord-' + id);
+    card.css('opacity', '0.5').css('pointer-events', 'none');
+
+    jQuery.post('<?php echo admin_url("admin-ajax.php"); ?>', {
+        action: 'qrrs_review_qr_order',
+        order_id: id,
+        decision: decision,
+        security: qr_nonce
+    }, function(res) {
+        if (res.success) {
+            loadAllOrders();
+        } else {
+            card.css('opacity', '1').css('pointer-events', 'auto');
+            alert('Failed: ' + (res.data || 'Unknown error'));
+        }
     });
 }
 

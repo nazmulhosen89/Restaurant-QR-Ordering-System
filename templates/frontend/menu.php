@@ -320,7 +320,7 @@ $items = $wpdb->get_results($wpdb->prepare(
             </svg>
         </div>
         <h2 style="margin:20px 0 10px; color:#1e293b;">Thank You!</h2>
-        <p style="color:#64748b; font-size:16px;">Your order has been placed successfully.</p>
+        <p style="color:#64748b; font-size:16px;">Your order is waiting for restaurant confirmation.</p>
         <p style="margin-top:15px; font-size:13px; color:#94a3b8;">
             Redirecting to home in <span id="timer">3</span> seconds...
         </p>
@@ -573,6 +573,8 @@ function processFinalOrder(grandTotal) {
             action: 'place_qr_order',
             restaurant_id: <?php echo intval($res_id); ?>,
             table_id: <?php echo intval($current_table->id); ?>,
+            order_type: 'dine_in',
+            order_source: 'qr',
             items: JSON.stringify(processedCart),
             subtotal: sub,
             tax_amount: vatVal,
