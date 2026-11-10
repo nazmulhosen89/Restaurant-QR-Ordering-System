@@ -487,3 +487,4 @@ function handle_update_dashboard_order_status() {
 }
 
 new QR_Restaurant_System();
+
