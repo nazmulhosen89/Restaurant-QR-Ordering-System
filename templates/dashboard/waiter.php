@@ -129,6 +129,7 @@ $has_item_type = in_array('item_type', $item_cols);
 
                 <div id="user-dropdown" class="u-drop-premium">
                     <a href="?tab=requisition"><span>INV</span> Requisition</a>
+                    <a href="?tab=wastage"><span>WST</span> Wastage</a>
                     <a href="?tab=profile"><span>👤</span> Profile Settings</a>
                     <a href="?tab=terminal"><span>📊</span> My Performance</a>
                     <hr style="border:0; border-top:1px solid rgba(255,255,255,0.05); margin:5px 0;">
@@ -146,6 +147,8 @@ $has_item_type = in_array('item_type', $item_cols);
             if ( file_exists( $profile_path ) ) include $profile_path;
             ?>
         </div>
+    <?php elseif ( $current_tab == 'wastage' ): ?>
+        <?php if ( function_exists( 'qrrs_wastage_panel' ) ) { qrrs_wastage_panel( 'waiter' ); } ?>
     <?php elseif ( $current_tab == 'requisition' ): ?>
         <?php
         if ( function_exists( 'qrrs_inventory_render_requisition_panel' ) ) {
@@ -222,7 +225,7 @@ $has_item_type = in_array('item_type', $item_cols);
             $can_edit  = ($status === 'pending');
             $can_add   = in_array($status, ['pending', 'processing', 'ready', 'served']);
 
-            $steps     = ['pending'=>'Pending', 'processing'=>'Cooking', 'ready'=>'Ready', 'served'=>'Served'];
+            $steps     = ['awaiting_verification'=>'Verification', 'pending'=>'Pending', 'processing'=>'Cooking', 'ready'=>'Ready', 'served'=>'Served'];
             $step_keys = array_keys($steps);
             $cur_idx   = array_search($status, $step_keys);
             if ($cur_idx === false) $cur_idx = 0;
@@ -306,7 +309,10 @@ $has_item_type = in_array('item_type', $item_cols);
                 </div>
 
                 <div class="task-footer">
-                    <?php if ( $status === 'pending' ) : ?>
+                    <?php if ( $status === 'awaiting_verification' ) : ?>
+                        <button class="btn-action" style="background:#22c55e; color:#fff;" onclick="reviewWaiterQrOrder(<?php echo $order_id; ?>, 'approve')">✓ ACCEPT QR ORDER</button>
+                        <button class="btn-sm" style="color:#dc2626; border-color:#fecaca;" onclick="reviewWaiterQrOrder(<?php echo $order_id; ?>, 'cancel')">Cancel</button>
+                    <?php elseif ( $status === 'pending' ) : ?>
                         <button class="btn-edit-order" 
                             style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);"
                             onclick="handleEditClick(<?php echo $order_id; ?>, '<?php echo esc_js($order->table_name); ?>', '<?php echo $status; ?>', <?php echo $order->waiter_id; ?>)">
@@ -929,6 +935,22 @@ $has_item_type = in_array('item_type', $item_cols);
             if (res.success) {
                 showToast('Order ' + status, 'success');
                 setTimeout(function(){ location.reload(); }, 1000);
+            }
+        });
+    };
+
+    window.reviewWaiterQrOrder = function(orderId, decision) {
+        $.post(qrrs_vars.ajax_url, {
+            action: 'qrrs_review_qr_order',
+            order_id: orderId,
+            decision: decision,
+            security: '<?php echo wp_create_nonce( 'qr_order_nonce' ); ?>'
+        }, function(res) {
+            if (res.success) {
+                showToast(decision === 'approve' ? 'QR order accepted' : 'QR order cancelled', 'success');
+                setTimeout(function(){ location.reload(); }, 700);
+            } else {
+                showToast('Error: ' + (res.data || 'Unable to review order'), 'error');
             }
         });
     };

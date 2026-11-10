@@ -25,6 +25,8 @@ class QRRS_Database {
             currency_symbol varchar(10) DEFAULT '$',
             tax_percent decimal(5,2) DEFAULT 0.00,
             service_charge_percent decimal(5,2) DEFAULT 0.00,
+            kitchen_mode varchar(30) DEFAULT 'active_kitchen',
+            kitchen_capacity int(11) DEFAULT 1,
             pos_printer_settings text,
             report_printer_settings text,
             status varchar(20) DEFAULT 'active',
@@ -105,6 +107,10 @@ class QRRS_Database {
             table_id bigint(20) NOT NULL,
             waiter_id bigint(20),
             order_type varchar(20) DEFAULT 'dine_in',
+            order_source varchar(20) DEFAULT 'pos',
+            verification_status varchar(30) DEFAULT 'approved',
+            verified_by bigint(20) DEFAULT 0,
+            verified_at datetime DEFAULT NULL,
             total_amount decimal(10,2) DEFAULT 0.00,
             tax_amount decimal(10,2) DEFAULT 0.00,
             service_charge decimal(10,2) DEFAULT 0.00,
@@ -134,6 +140,8 @@ class QRRS_Database {
             quantity int(11) NOT NULL,
             price decimal(10,2) NOT NULL,
             variants_selected text,
+            size_value_ids varchar(255) NOT NULL DEFAULT '',
+            size_name varchar(255) NOT NULL DEFAULT '',
             item_status varchar(20) DEFAULT 'pending',
             item_type varchar(20) DEFAULT 'original',
             inventory_deducted tinyint(1) DEFAULT 0,
@@ -154,6 +162,24 @@ class QRRS_Database {
             closed_at datetime DEFAULT NULL,
             status varchar(20) DEFAULT 'open',
             PRIMARY KEY (id),
+            KEY restaurant_id (restaurant_id)
+        ) $charset_collate;";
+
+        /**
+         * 9. Delivery customer details are kept separate so only approved
+         * management screens ever query or expose personal delivery data.
+         */
+        $sql_order_customers = "CREATE TABLE {$prefix}order_customers (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            order_id bigint(20) NOT NULL,
+            restaurant_id bigint(20) NOT NULL,
+            customer_name varchar(255) NOT NULL,
+            customer_phone varchar(50) NOT NULL,
+            delivery_address text NOT NULL,
+            delivery_note text,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY order_id (order_id),
             KEY restaurant_id (restaurant_id)
         ) $charset_collate;";
 
@@ -220,6 +246,7 @@ class QRRS_Database {
             id bigint(20) NOT NULL AUTO_INCREMENT,
             restaurant_id bigint(20) NOT NULL,
             supplier_name varchar(255) NOT NULL,
+            supplier_type varchar(20) DEFAULT 'registered',
             phone varchar(50) DEFAULT '',
             email varchar(120) DEFAULT '',
             address text,
@@ -228,6 +255,125 @@ class QRRS_Database {
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             KEY restaurant_id (restaurant_id)
+        ) $charset_collate;";
+
+        /**
+         * Purchases (bill header) - one row per supplier invoice
+         */
+        $sql_purchases = "CREATE TABLE {$prefix}purchases (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            restaurant_id bigint(20) NOT NULL,
+            supplier_id bigint(20) NOT NULL,
+            invoice_no varchar(100) NOT NULL,
+            invoice_date date DEFAULT NULL,
+            total_amount decimal(14,2) NOT NULL DEFAULT 0.00,
+            bill_file varchar(255) DEFAULT '',
+            bill_original_name varchar(255) DEFAULT '',
+            notes text,
+            created_by bigint(20) DEFAULT 0,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY supplier_invoice (restaurant_id, supplier_id, invoice_no),
+            KEY restaurant_id (restaurant_id)
+        ) $charset_collate;";
+
+        /**
+         * Purchase lines - one row per item in a bill
+         */
+        $sql_purchase_items = "CREATE TABLE {$prefix}purchase_items (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            purchase_id bigint(20) NOT NULL,
+            restaurant_id bigint(20) NOT NULL,
+            inventory_item_id bigint(20) NOT NULL,
+            quantity decimal(14,4) NOT NULL DEFAULT 0.0000,
+            unit_cost decimal(14,2) NOT NULL DEFAULT 0.00,
+            line_total decimal(14,2) NOT NULL DEFAULT 0.00,
+            PRIMARY KEY (id),
+            KEY purchase_id (purchase_id),
+            KEY inventory_item_id (inventory_item_id)
+        ) $charset_collate;";
+
+        /**
+         * Stocktake sessions (physical count)
+         */
+        $sql_stocktakes = "CREATE TABLE {$prefix}stocktakes (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            restaurant_id bigint(20) NOT NULL,
+            status varchar(20) NOT NULL DEFAULT 'open',
+            count_type varchar(20) NOT NULL DEFAULT 'opening',
+            note varchar(255) DEFAULT '',
+            created_by bigint(20) DEFAULT 0,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            finalized_by bigint(20) DEFAULT 0,
+            finalized_at datetime DEFAULT NULL,
+            PRIMARY KEY (id),
+            KEY restaurant_id (restaurant_id)
+        ) $charset_collate;";
+
+        /**
+         * Stocktake lines: one per item in a session
+         */
+        $sql_stocktake_lines = "CREATE TABLE {$prefix}stocktake_lines (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            stocktake_id bigint(20) NOT NULL,
+            restaurant_id bigint(20) NOT NULL,
+            inventory_item_id bigint(20) NOT NULL,
+            system_qty decimal(14,4) NOT NULL DEFAULT 0.0000,
+            counted_qty decimal(14,4) DEFAULT NULL,
+            adjusted_qty decimal(14,4) NOT NULL DEFAULT 0.0000,
+            PRIMARY KEY (id),
+            KEY stocktake_id (stocktake_id)
+        ) $charset_collate;";
+
+        /**
+         * Variant (add-on) recipe lines: extra ingredients used when a variant is selected
+         */
+        $sql_variant_recipes = "CREATE TABLE {$prefix}variant_recipes (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            restaurant_id bigint(20) NOT NULL,
+            menu_item_id bigint(20) NOT NULL,
+            variant_name varchar(150) NOT NULL,
+            inventory_item_id bigint(20) NOT NULL,
+            quantity_required decimal(14,4) NOT NULL DEFAULT 0.0000,
+            unit_id bigint(20) DEFAULT NULL,
+            wastage_percent decimal(5,2) NOT NULL DEFAULT 0.00,
+            created_at datetime DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY menu_variant (restaurant_id, menu_item_id, variant_name)
+        ) $charset_collate;";
+
+        /**
+         * Menu option groups: one menu item can have several groups
+         * (group_type 'size' = pick one, priced per value; 'addon' = pick many, extra price)
+         */
+        $sql_option_groups = "CREATE TABLE {$prefix}menu_option_groups (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            restaurant_id bigint(20) NOT NULL,
+            menu_item_id bigint(20) NOT NULL,
+            group_name varchar(150) NOT NULL,
+            group_type varchar(20) NOT NULL DEFAULT 'size',
+            is_required tinyint(1) NOT NULL DEFAULT 0,
+            sort_order int(11) NOT NULL DEFAULT 0,
+            status varchar(20) NOT NULL DEFAULT 'active',
+            PRIMARY KEY (id),
+            KEY menu_item_id (restaurant_id, menu_item_id)
+        ) $charset_collate;";
+
+        /**
+         * Menu option values: e.g. Half / Full (size, full price + recipe factor), Extra Cheese (addon, extra price)
+         */
+        $sql_option_values = "CREATE TABLE {$prefix}menu_option_values (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            restaurant_id bigint(20) NOT NULL,
+            group_id bigint(20) NOT NULL,
+            menu_item_id bigint(20) NOT NULL,
+            value_name varchar(150) NOT NULL,
+            price decimal(10,2) NOT NULL DEFAULT 0.00,
+            recipe_factor decimal(10,4) NOT NULL DEFAULT 1.0000,
+            sort_order int(11) NOT NULL DEFAULT 0,
+            status varchar(20) NOT NULL DEFAULT 'active',
+            PRIMARY KEY (id),
+            KEY group_id (group_id)
         ) $charset_collate;";
 
         /**
@@ -339,7 +485,11 @@ class QRRS_Database {
             quantity decimal(14,4) DEFAULT 0.0000,
             unit_id bigint(20) DEFAULT 0,
             reason varchar(255) DEFAULT '',
+            reason_code varchar(50) DEFAULT '',
             note text,
+            unit_cost decimal(14,2) DEFAULT 0.00,
+            total_value decimal(14,2) DEFAULT 0.00,
+            reject_reason varchar(255) DEFAULT '',
             status varchar(30) DEFAULT 'pending',
             reported_by bigint(20) DEFAULT 0,
             approved_by bigint(20) DEFAULT 0,
@@ -360,10 +510,18 @@ class QRRS_Database {
         dbDelta( $sql_orders );
         dbDelta( $sql_order_items );
         dbDelta( $sql_kitchen_sessions );
+        dbDelta( $sql_order_customers );
         dbDelta( $sql_inventory_categories );
         dbDelta( $sql_inventory_units );
         dbDelta( $sql_inventory_items );
         dbDelta( $sql_suppliers );
+        dbDelta( $sql_purchases );
+        dbDelta( $sql_purchase_items );
+        dbDelta( $sql_stocktakes );
+        dbDelta( $sql_stocktake_lines );
+        dbDelta( $sql_variant_recipes );
+        dbDelta( $sql_option_groups );
+        dbDelta( $sql_option_values );
         dbDelta( $sql_stock_movements );
         dbDelta( $sql_requisitions );
         dbDelta( $sql_requisition_items );

@@ -42,6 +42,13 @@ function qrrs_inventory_can_manage() {
     return current_user_can( 'administrator' ) || current_user_can( 'qr_manager' );
 }
 
+/**
+ * Only administrators and super admins can add/edit raw materials and categories.
+ */
+function qrrs_inventory_is_admin() {
+    return current_user_can( 'administrator' ) || ( function_exists( 'is_super_admin' ) && is_super_admin() );
+}
+
 function qrrs_inventory_can_request() {
     return is_user_logged_in();
 }
@@ -106,24 +113,68 @@ function qrrs_inventory_add_stock_movement( $args ) {
         return false;
     }
 
+    $items_table  = $wpdb->prefix . 'qrrs_inventory_items';
+    $ledger_table = $wpdb->prefix . 'qrrs_stock_movements';
+    $now          = current_time( 'mysql' );
+    $total_cost   = $unit_cost * max( $qty_in, $qty_out );
+
+    // Everything below runs as one transaction, so the stock check, the stock
+    // change and the ledger row either all happen or none of them do.
+    // When called from another transaction (e.g. a purchase save), the caller owns
+    // the transaction and is responsible for ROLLBACK/COMMIT.
+    $own_tx = empty( $args['in_transaction'] );
+    if ( $own_tx ) {
+        $wpdb->query( 'START TRANSACTION' );
+    }
+    $fail = function () use ( $wpdb, $own_tx ) {
+        if ( $own_tx ) {
+            $wpdb->query( 'ROLLBACK' );
+        }
+        return false;
+    };
+
     if ( $qty_out > 0 ) {
-        $current_stock = $wpdb->get_var(
+        // Atomic check + decrement: the row is only changed if enough stock exists.
+        // Two orders at the same time cannot both take the last unit.
+        if ( ! empty( $args['allow_negative'] ) ) {
+            // Sales may take stock below zero; the shortage is shown in the Low Stock tab.
+            $affected = $wpdb->query(
+                $wpdb->prepare(
+                    "UPDATE $items_table
+                     SET current_stock = current_stock - %f, updated_at = %s
+                     WHERE id = %d AND restaurant_id = %d",
+                    $qty_out, $now, $item_id, $restaurant_id
+                )
+            );
+        } else {
+            $affected = $wpdb->query(
+                $wpdb->prepare(
+                    "UPDATE $items_table
+                     SET current_stock = current_stock - %f, updated_at = %s
+                     WHERE id = %d AND restaurant_id = %d AND current_stock >= %f",
+                    $qty_out, $now, $item_id, $restaurant_id, $qty_out
+                )
+            );
+        }
+        if ( 1 !== (int) $affected ) {
+            return $fail();
+        }
+    } else {
+        $affected = $wpdb->query(
             $wpdb->prepare(
-                "SELECT current_stock FROM {$wpdb->prefix}qrrs_inventory_items WHERE id = %d AND restaurant_id = %d",
-                $item_id,
-                $restaurant_id
+                "UPDATE $items_table
+                 SET current_stock = current_stock + %f, updated_at = %s
+                 WHERE id = %d AND restaurant_id = %d",
+                $qty_in, $now, $item_id, $restaurant_id
             )
         );
-
-        if ( null === $current_stock || floatval( $current_stock ) < $qty_out ) {
-            return false;
+        if ( false === $affected || 0 === (int) $affected ) {
+            return $fail();
         }
     }
 
-    $total_cost = $unit_cost * max( $qty_in, $qty_out );
-
     $inserted = $wpdb->insert(
-        $wpdb->prefix . 'qrrs_stock_movements',
+        $ledger_table,
         [
             'restaurant_id'     => $restaurant_id,
             'inventory_item_id' => $item_id,
@@ -136,31 +187,19 @@ function qrrs_inventory_add_stock_movement( $args ) {
             'reference_id'      => intval( $args['reference_id'] ),
             'note'              => sanitize_textarea_field( $args['note'] ),
             'created_by'        => intval( $args['created_by'] ),
-            'created_at'        => current_time( 'mysql' ),
+            'created_at'        => $now,
         ],
         [ '%d', '%d', '%s', '%f', '%f', '%f', '%f', '%s', '%d', '%s', '%d', '%s' ]
     );
 
     if ( ! $inserted ) {
-        return false;
+        return $fail();
     }
-
-    $delta = $qty_in - $qty_out;
-    $wpdb->query(
-        $wpdb->prepare(
-            "UPDATE {$wpdb->prefix}qrrs_inventory_items
-             SET current_stock = current_stock + %f, updated_at = %s
-             WHERE id = %d AND restaurant_id = %d",
-            $delta,
-            current_time( 'mysql' ),
-            $item_id,
-            $restaurant_id
-        )
-    );
+    $insert_id = $wpdb->insert_id;
 
     if ( $qty_in > 0 && $unit_cost > 0 ) {
         $wpdb->update(
-            $wpdb->prefix . 'qrrs_inventory_items',
+            $items_table,
             [ 'cost_per_unit' => $unit_cost ],
             [ 'id' => $item_id, 'restaurant_id' => $restaurant_id ],
             [ '%f' ],
@@ -168,7 +207,10 @@ function qrrs_inventory_add_stock_movement( $args ) {
         );
     }
 
-    return $wpdb->insert_id;
+    if ( $own_tx ) {
+        $wpdb->query( 'COMMIT' );
+    }
+    return $insert_id;
 }
 
 function qrrs_inventory_save_menu_item_recipe( $restaurant_id, $menu_item_id, $ingredient_ids, $quantities, $unit_ids, $wastage_percents ) {
@@ -446,3 +488,20 @@ function qrrs_inventory_render_requisition_panel( $forced_department = '' ) {
     </div>
     <?php
 }
+
+/**
+ * Keeps the database schema up to date without needing a re-activation.
+ * Bump QRRS_SCHEMA_VERSION whenever a table or column is added.
+ */
+if ( ! defined( 'QRRS_SCHEMA_VERSION' ) ) {
+    define( 'QRRS_SCHEMA_VERSION', '2026.11.09-8' );
+}
+add_action( 'init', function () {
+    if ( get_option( 'qrrs_schema_version' ) === QRRS_SCHEMA_VERSION ) {
+        return;
+    }
+    if ( class_exists( 'QRRS_Database' ) ) {
+        QRRS_Database::create_tables();
+        update_option( 'qrrs_schema_version', QRRS_SCHEMA_VERSION, false );
+    }
+} );
