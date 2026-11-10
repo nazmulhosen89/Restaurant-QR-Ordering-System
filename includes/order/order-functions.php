@@ -478,6 +478,7 @@ function qrrs_final_order_status_update() {
     // --------------------------------------------------------
     if ($updated !== false) {
         do_action( 'qrrs_order_status_changed', $order_id, $status );
+>>>>>>> 8d6c19c0862609a82cba50dc605880b7ec58884b
 
         $items_table = $wpdb->prefix . 'qrrs_order_items';
         if ( $status === 'processing' ) {

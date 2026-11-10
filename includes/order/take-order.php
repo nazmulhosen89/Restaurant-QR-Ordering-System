@@ -352,6 +352,54 @@ function confirmDeliveryCustomer() {
 }
 
 
+function prepareItem(item) {
+    let rawVar = item.variants || item.variants_json || "";
+    let variants = [];
+    try {
+        if (typeof rawVar === 'string' && rawVar.trim() !== "" && rawVar !== "[]") variants = JSON.parse(rawVar);
+        else if (Array.isArray(rawVar)) variants = rawVar;
+    } catch(e) { variants = []; }
+
+    if(variants.length > 0) {
+        let html = `<h3>${item.item_name}</h3><p style="color:#64748b; font-size:14px;">Customize order:</p>`;
+        variants.forEach(v => {
+            html += `
+            <label style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:10px; cursor:pointer;">
+                <input type="checkbox" class="v_opt_cb" value="${v}" style="width:20px; height:20px; accent-color:var(--primary);">
+                <span style="font-weight:500;">${v}</span>
+            </label>`;
+        });
+        html += `<button onclick='confirmAdd(${JSON.stringify(item)})' class="btn-place-order">Add to Order</button>`;
+        html += `<button onclick="closeM()" style="width:100%; background:none; border:none; margin-top:10px; color:#94a3b8; cursor:pointer;">Cancel</button>`;
+        document.getElementById('vBody').innerHTML = html;
+        document.getElementById('vModal').style.display = 'flex';
+    } else {
+        addToCart(item, []);
+    }
+}
+>>>>>>> 8d6c19c0862609a82cba50dc605880b7ec58884b
+}
+
+function confirmDeliveryCustomer() {
+    const name = document.getElementById('delivery-customer-name').value.trim();
+    const phone = document.getElementById('delivery-customer-phone').value.trim();
+    const address = document.getElementById('delivery-customer-address').value.trim();
+    const note = document.getElementById('delivery-customer-note').value.trim();
+
+    if (!name || !phone || !address) {
+        alert('Customer name, phone number, and delivery address are required.');
+        return;
+    }
+
+    deliveryCustomer = { name, phone, address, note };
+    orderMeta.type = 'delivery';
+    orderMeta.table_id = 0;
+    orderMeta.table_name = 'Delivery';
+    closeM();
+    finalizeSelection();
+}
+
+
 let pendingItem = null;
 let optionCache = {};
 
@@ -708,3 +756,4 @@ document.querySelectorAll('.cat-item[data-cat]').forEach(el => {
 });
 
 </script>
+>>>>>>> 8d6c19c0862609a82cba50dc605880b7ec58884b
