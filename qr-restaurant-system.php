@@ -317,6 +317,7 @@ function handle_qr_order_placement() {
         wp_send_json_error( 'Invalid order details.' );
     }
 
+<<<<<<< HEAD
     // Server recalculates every line (price, size, add-ons). The browser's prices are not trusted.
     $checked = qrrs_validate_order_items( $res_id, $items );
     if ( is_string( $checked ) ) {
@@ -325,6 +326,8 @@ function handle_qr_order_placement() {
     $items            = $checked['lines'];
     $checked_subtotal = $checked['subtotal'];
 
+=======
+>>>>>>> 62d4785085a0d620b3973847c54e1de5461ddd1e
     $is_pos_order = $requested_source === 'pos'
         && is_user_logged_in()
         && function_exists( 'qrrs_current_user_can_operate_restaurant' )
