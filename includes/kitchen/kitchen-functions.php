@@ -19,22 +19,6 @@ function handle_fetch_kitchen_orders() {
     ));
     $restaurant_id = $staff ? intval($staff->restaurant_id) : 0;
     if (!$restaurant_id) { wp_send_json_error('No restaurant assigned'); }
-    if ( function_exists( 'qrrs_current_user_can_access_kitchen' ) && ! qrrs_current_user_can_access_kitchen( $restaurant_id ) ) {
-        wp_send_json_error( 'You do not have access to this kitchen.' );
-    }
-
-    $kitchen_settings = function_exists( 'qrrs_get_restaurant_kitchen_settings' )
-        ? qrrs_get_restaurant_kitchen_settings( $restaurant_id )
-        : [ 'mode' => 'active_kitchen', 'capacity' => 1 ];
-
-    if ( $kitchen_settings['mode'] !== 'active_kitchen' ) {
-        wp_send_json_success([
-            'stats' => [ 'total' => 0, 'confirmed' => 0, 'table_order' => 0, 'take_away' => 0, 'complete' => 0, 'cancel' => 0 ],
-            'orders' => [],
-            'kitchen_capacity' => $kitchen_settings['capacity'],
-            'kitchen_mode' => $kitchen_settings['mode'],
-        ]);
-    }
 
     $wp_timezone = wp_timezone();
     $local_now   = new DateTime('now', $wp_timezone);
@@ -61,13 +45,12 @@ function handle_fetch_kitchen_orders() {
         INNER JOIN $items_table i ON o.id = i.order_id
         WHERE o.restaurant_id = %d
         AND o.created_at BETWEEN %s AND %s
-        AND o.order_status IN ('pending', 'processing', 'ready')
+        AND o.order_status NOT IN ('completed', 'cancelled', 'billing')
         AND i.item_status IN ('pending', 'processing')
         ORDER BY o.created_at ASC
     ", $restaurant_id, $today_start, $today_end));
 
     $formatted = [];
-    $queued_item_units = 0;
     foreach ($orders as $order) {
 
         $items = $wpdb->get_results($wpdb->prepare("
@@ -78,8 +61,7 @@ function handle_fetch_kitchen_orders() {
                 oi.variants_selected,
                 COALESCE(oi.item_type,   'original') AS item_type,
                 COALESCE(oi.item_status, 'pending')  AS item_status,
-                COALESCE(c.category_name, '')         AS category_name,
-                COALESCE(mi.prep_time, '10')          AS prep_time
+                COALESCE(c.category_name, '')         AS category_name
             FROM $items_table oi
             LEFT JOIN $menu_table mi ON oi.item_id = mi.id
             LEFT JOIN $cat_table  c  ON mi.category_id = c.id
@@ -118,12 +100,7 @@ function handle_fetch_kitchen_orders() {
         }
 
         $items_data = [];
-        $order_item_units = 0;
-        $order_prep_minutes = 10;
         foreach ($items as $item) {
-            $order_item_units += intval( $item->quantity );
-            $item_prep_minutes = intval( preg_replace( '/[^0-9]/', '', (string) $item->prep_time ) );
-            $order_prep_minutes = max( $order_prep_minutes, $item_prep_minutes ?: 10 );
             $items_data[] = [
                 'name'          => $item->item_name,
                 'qty'           => intval($item->quantity),
@@ -133,9 +110,6 @@ function handle_fetch_kitchen_orders() {
                 'category_name' => $item->category_name,
             ];
         }
-        $estimated_wait_minutes = (int) ceil( $queued_item_units / max( 1, $kitchen_settings['capacity'] ) ) * 10;
-        $estimated_ready_minutes = $estimated_wait_minutes + $order_prep_minutes;
-        $queued_item_units += $order_item_units;
 
        
         $order_timestamp = strtotime($order->created_at);
@@ -150,7 +124,6 @@ function handle_fetch_kitchen_orders() {
             'next_status' => $next_status,
             'btn_label'   => $btn_label,
             'btn_class'   => $btn_class,
-            'estimated_ready_minutes' => $estimated_ready_minutes,
             'items'       => $items_data,
         ];
     }
@@ -164,9 +137,7 @@ function handle_fetch_kitchen_orders() {
             'complete'    => (int)($stats_raw->complete    ?? 0),
             'cancel'      => (int)($stats_raw->cancel      ?? 0),
         ],
-        'orders' => $formatted,
-        'kitchen_capacity' => $kitchen_settings['capacity'],
-        'kitchen_mode' => $kitchen_settings['mode'],
+        'orders' => $formatted
     ]);
 }
 
@@ -181,20 +152,7 @@ function handle_kitchen_status_update() {
     $orders_table = $wpdb->prefix . 'qrrs_orders';
     $items_table  = $wpdb->prefix . 'qrrs_order_items';
 
-    if ( ! in_array( $status, [ 'processing', 'ready' ], true ) ) {
-        wp_send_json_error( 'Invalid kitchen status.' );
-    }
-
-    $order = $wpdb->get_row( $wpdb->prepare( "SELECT restaurant_id, order_status FROM $orders_table WHERE id = %d", $order_id ) );
-    if ( ! $order || ! function_exists( 'qrrs_current_user_can_access_kitchen' ) || ! qrrs_current_user_can_access_kitchen( $order->restaurant_id ) ) {
-        wp_send_json_error( 'You do not have permission to update this order.' );
-    }
-    if ( ! in_array( $order->order_status, [ 'pending', 'processing', 'ready' ], true ) ) {
-        wp_send_json_error( 'This order has not been approved for the kitchen.' );
-    }
-
     $wpdb->update($orders_table, ['order_status' => $status], ['id' => $order_id]);
-    do_action( 'qrrs_order_status_changed', $order_id, $status );
 
     if ($status === 'processing') {
         $wpdb->query($wpdb->prepare(
