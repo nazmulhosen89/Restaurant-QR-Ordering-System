@@ -129,6 +129,8 @@ $has_item_type = in_array('item_type', $item_cols);
 
                 <div id="user-dropdown" class="u-drop-premium">
                     <a href="?tab=requisition"><span>INV</span> Requisition</a>
+                    <a href="?tab=wastage"><span>WST</span> Wastage</a>
+                    <a href="?tab=customers"><span>CRM</span> Customers</a>
                     <a href="?tab=profile"><span>👤</span> Profile Settings</a>
                     <a href="?tab=terminal"><span>📊</span> My Performance</a>
                     <hr style="border:0; border-top:1px solid rgba(255,255,255,0.05); margin:5px 0;">
@@ -146,6 +148,10 @@ $has_item_type = in_array('item_type', $item_cols);
             if ( file_exists( $profile_path ) ) include $profile_path;
             ?>
         </div>
+    <?php elseif ( $current_tab == 'customers' ): ?>
+        <?php if ( function_exists( 'qrrs_crm_waiter_render' ) ) { qrrs_crm_waiter_render( $user_res_id ); } ?>
+    <?php elseif ( $current_tab == 'wastage' ): ?>
+        <?php if ( function_exists( 'qrrs_wastage_panel' ) ) { qrrs_wastage_panel( 'waiter' ); } ?>
     <?php elseif ( $current_tab == 'requisition' ): ?>
         <?php
         if ( function_exists( 'qrrs_inventory_render_requisition_panel' ) ) {
@@ -222,7 +228,7 @@ $has_item_type = in_array('item_type', $item_cols);
             $can_edit  = ($status === 'pending');
             $can_add   = in_array($status, ['pending', 'processing', 'ready', 'served']);
 
-            $steps     = ['pending'=>'Pending', 'processing'=>'Cooking', 'ready'=>'Ready', 'served'=>'Served'];
+            $steps     = ['awaiting_verification'=>'Verification', 'pending'=>'Pending', 'processing'=>'Cooking', 'ready'=>'Ready', 'served'=>'Served'];
             $step_keys = array_keys($steps);
             $cur_idx   = array_search($status, $step_keys);
             if ($cur_idx === false) $cur_idx = 0;
@@ -306,7 +312,10 @@ $has_item_type = in_array('item_type', $item_cols);
                 </div>
 
                 <div class="task-footer">
-                    <?php if ( $status === 'pending' ) : ?>
+                    <?php if ( $status === 'awaiting_verification' ) : ?>
+                        <button class="btn-action" style="background:#22c55e; color:#fff;" onclick="reviewWaiterQrOrder(<?php echo $order_id; ?>, 'approve')">✓ ACCEPT QR ORDER</button>
+                        <button class="btn-sm" style="color:#dc2626; border-color:#fecaca;" onclick="reviewWaiterQrOrder(<?php echo $order_id; ?>, 'cancel')">Cancel</button>
+                    <?php elseif ( $status === 'pending' ) : ?>
                         <button class="btn-edit-order" 
                             style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);"
                             onclick="handleEditClick(<?php echo $order_id; ?>, '<?php echo esc_js($order->table_name); ?>', '<?php echo $status; ?>', <?php echo $order->waiter_id; ?>)">
@@ -760,51 +769,138 @@ $has_item_type = in_array('item_type', $item_cols);
                   +     '<div class="item-ctrl-w" id="wctrl-'+item.id+'" style="'+(qty>0?'display:flex':'')+'" onclick="event.stopPropagation();">'
                   +       '<button class="qty-btn-w" onclick="changeQty('+item.id+',-1);event.stopPropagation();">−</button>'
                   +       '<span class="qty-num-w" id="wqnum-'+item.id+'">'+qty+'</span>'
-                  +       '<button class="qty-btn-w" onclick="changeQty('+item.id+',1);event.stopPropagation();">+</button>'
+                  +       '<button class="qty-btn-w" onclick="prepareItem('+idx+');event.stopPropagation();">+</button>'
                   +     '</div>'
                   +   '</div></div></div>';
         });
         $('#waiter-menu-list').html(html);
     }
 
+    var waiterOptionCache = {};
+    var waiterPending = null;
+
+    function wEsc(t){ return String(t).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+    function wFetchOptions(itemId) {
+        if (waiterOptionCache[itemId]) return Promise.resolve(waiterOptionCache[itemId]);
+        var body = new URLSearchParams({ action:'qrrs_get_item_options', restaurant_id: RES_ID, item_id: itemId });
+        return fetch(qrrs_vars.ajax_url, { method:'POST', body: body })
+            .then(function(r){ return r.json(); })
+            .then(function(j){
+                var g = (j && j.success && j.data && j.data.groups) ? j.data.groups : [];
+                waiterOptionCache[itemId] = g; return g;
+            })
+            .catch(function(){ return []; });
+    }
+
     window.prepareItem = function(idx) {
         var item = window._menuItems[idx]; if (!item) return;
+        waiterPending = { idx: idx, item: item };
         var rawVar = item.variants || '', variants = [];
         try { if (typeof rawVar==='string'&&rawVar.trim()&&rawVar!=='[]') variants=JSON.parse(rawVar); else if (Array.isArray(rawVar)) variants=rawVar; } catch(e){}
-        if (variants.length > 0) {
-            var html = '<h3 style="margin:0 0 15px 0;">'+item.item_name+'</h3><p style="color:#64748b;font-size:14px;margin-bottom:15px;">Customize:</p>';
-            variants.forEach(function(v){
-                html += '<label style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:10px;cursor:pointer;">'
-                      + '<input type="checkbox" class="v_opt_cb" value="'+v+'" style="width:20px;height:20px;accent-color:var(--primary);">'
-                      + '<span style="font-weight:500;">'+v+'</span></label>';
+        wFetchOptions(item.id).then(function(groups){
+            if (groups.length === 0 && variants.length === 0) { addToCart(item, [], [], [], parseFloat(item.price)); return; }
+            renderWaiterModal(item, groups, variants);
+        });
+    };
+
+    function renderWaiterModal(item, groups, legacy) {
+        var html = '<h3 style="margin:0 0 15px 0;">'+wEsc(item.item_name)+'</h3>';
+        groups.forEach(function(g){
+            html += '<p style="font-weight:700;margin:12px 0 6px;">'+wEsc(g.name)+(g.type==='size'&&g.required?' <span style="color:#dc2626;">*</span>':'')+'</p>';
+            if (g.type === 'size') {
+                if (!g.required) {
+                    html += '<label style="display:flex;align-items:center;gap:12px;padding:10px;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:8px;cursor:pointer;"><input type="radio" name="wsize_'+g.id+'" value="0" checked data-price="0" data-name=""><span>None</span></label>';
+                }
+                g.values.forEach(function(v){
+                    html += '<label style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:8px;cursor:pointer;"><input type="radio" class="w_size_rb" name="wsize_'+g.id+'" value="'+v.id+'" data-price="'+v.price+'" data-name="'+wEsc(v.name)+'"><span style="font-weight:500;">'+wEsc(v.name)+'</span><span style="margin-left:auto;font-weight:700;">'+Number(v.price).toFixed(2)+'৳</span></label>';
+                });
+            } else {
+                g.values.forEach(function(v){
+                    html += '<label style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:10px;cursor:pointer;"><input type="checkbox" class="v_opt_cb" value="'+wEsc(v.name)+'" data-price="'+v.price+'" data-name="'+wEsc(v.name)+'" style="width:20px;height:20px;accent-color:var(--primary);"><span style="font-weight:500;">'+wEsc(v.name)+'</span><span style="margin-left:auto;color:#64748b;">+'+Number(v.price).toFixed(2)+'৳</span></label>';
+                });
+            }
+        });
+        if (legacy.length) {
+            html += '<p style="font-weight:700;margin:12px 0 6px;">Extras</p>';
+            legacy.forEach(function(v){
+                html += '<label style="display:flex;align-items:center;gap:12px;padding:12px;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:10px;cursor:pointer;"><input type="checkbox" class="v_opt_cb" value="'+wEsc(v)+'" data-price="0" data-name="'+wEsc(v)+'" style="width:20px;height:20px;accent-color:var(--primary);"><span style="font-weight:500;">'+wEsc(v)+'</span></label>';
             });
-            html += '<button onclick="confirmVariant('+idx+')" style="width:100%;background:var(--primary);color:#fff;border:none;padding:15px;border-radius:12px;font-weight:bold;margin-top:10px;cursor:pointer;">Add to Order</button>';
-            html += '<button onclick="closeVariant()" style="width:100%;background:none;border:none;margin-top:8px;color:#94a3b8;cursor:pointer;">Maybe later</button>';
-            $('#variant-modal-body').html(html);
-            $('#variant-modal').show();
-        } else { addToCart(item, []); }
+        }
+        html += '<p id="w_vtotal" style="font-weight:700;text-align:right;margin:12px 0;"></p>';
+        html += '<button onclick="confirmVariant()" style="width:100%;background:var(--primary);color:#fff;border:none;padding:15px;border-radius:12px;font-weight:bold;margin-top:10px;cursor:pointer;">Add to Order</button>';
+        html += '<button onclick="closeVariant()" style="width:100%;background:none;border:none;margin-top:8px;color:#94a3b8;cursor:pointer;">Maybe later</button>';
+        $('#variant-modal-body').html(html);
+        $('#variant-modal').show();
+        document.querySelectorAll('#variant-modal-body input').forEach(function(el){ el.addEventListener('change', wUpdateTotal); });
+        wUpdateTotal();
+    }
+
+    function wSelection() {
+        var item = waiterPending.item, groups = waiterOptionCache[item.id] || [];
+        var requiredSize = groups.filter(function(g){ return g.type==='size' && g.required; }).length;
+        var price = requiredSize > 0 ? 0 : parseFloat(item.price);
+        var sizeIds = [], sizeNames = [], addons = [];
+        document.querySelectorAll('input[type="radio"]:checked').forEach(function(rb){
+            if (rb.value === '0') return;
+            sizeIds.push(rb.value); sizeNames.push(rb.dataset.name); price += parseFloat(rb.dataset.price || 0);
+        });
+        document.querySelectorAll('.v_opt_cb:checked').forEach(function(cb){
+            addons.push(cb.dataset.name || cb.value); price += parseFloat(cb.dataset.price || 0);
+        });
+        return { sizeIds: sizeIds, sizeNames: sizeNames, addons: addons, price: price };
+    }
+
+    function wUpdateTotal() {
+        var el = document.getElementById('w_vtotal'); if (!el || !waiterPending) return;
+        el.textContent = 'Total: ' + wSelection().price.toFixed(2) + '৳';
+    }
+
+    window.confirmVariant = function() {
+        if (!waiterPending) return;
+        var item = waiterPending.item, groups = waiterOptionCache[item.id] || [];
+        for (var i=0;i<groups.length;i++) {
+            var g = groups[i];
+            if (g.type==='size' && g.required && !document.querySelector('input[name="wsize_'+g.id+'"]:checked')) {
+                alert('Please choose: ' + g.name); return;
+            }
+        }
+        var sel = wSelection();
+        addToCart(item, sel.addons, sel.sizeIds, sel.sizeNames, sel.price);
+        closeVariant();
     };
-    window.confirmVariant = function(idx) {
-        var item = window._menuItems[idx]; var sel = [];
-        document.querySelectorAll('.v_opt_cb:checked').forEach(function(cb){ sel.push(cb.value); });
-        addToCart(item, sel); closeVariant();
-    };
+
     window.closeVariant = function() { $('#variant-modal').hide(); };
 
-    function addToCart(item, variants) {
-        var key = item.id+(variants.length?'-'+variants.join('-'):'');
+    function addToCart(item, variants, sizeIds, sizeNames, unitPrice) {
+        sizeIds = sizeIds || []; sizeNames = sizeNames || [];
+        var price = (unitPrice === undefined || unitPrice === null) ? parseFloat(item.price) : unitPrice;
+        var label = sizeNames.join(' + ');
+        var key = item.id + '|' + sizeIds.join(',') + '|' + variants.join(',');
         var ex = cart.find(function(x){ return x.key===key; });
-        if (ex) ex.qty++; else cart.push({key:key,id:item.id,name:item.item_name,price:parseFloat(item.price),variants:variants,qty:1,tax_free:parseInt(item.is_tax_free||0)});
+        if (ex) ex.qty++;
+        else cart.push({key:key, id:item.id, name:item.item_name + (label ? ' ('+label+')' : ''), price:price, variants:variants, size_ids:sizeIds, qty:1, tax_free:parseInt(item.is_tax_free||0)});
         syncUI(item.id); renderCart();
     }
+    // Grid "−": removes one from the most recently added line of this item
     window.changeQty = function(id, delta) {
-        var it = cart.find(function(x){ return x.id==id; }); if (!it) return;
-        it.qty += delta;
-        if (it.qty<=0) cart = cart.filter(function(x){ return x.id!=id; });
-        syncUI(id); renderCart();
+        if (delta >= 0) return;
+        var idxs = []; cart.forEach(function(x, i){ if (x.id == id) idxs.push(i); });
+        if (!idxs.length) return;
+        changeLine(idxs[idxs.length - 1], -1);
     };
+
+    // Cart row buttons: change exactly this line
+    window.changeLine = function(index, delta) {
+        var it = cart[index]; if (!it) return;
+        var itemId = it.id;
+        it.qty += delta;
+        if (it.qty <= 0) cart.splice(index, 1);
+        syncUI(itemId); renderCart();
+    };
+
     function syncUI(id) {
-        var inCart=cart.find(function(x){ return x.id==id; }); var qty=inCart?inCart.qty:0;
+        var qty=cart.reduce(function(sum,x){ return x.id==id ? sum+x.qty : sum; },0);
         var badge=document.getElementById('wbadge-'+id), ctrl=document.getElementById('wctrl-'+id),
             qnum=document.getElementById('wqnum-'+id), card=document.getElementById('wcard-'+id);
         if (badge){badge.innerText=qty;badge.style.display=qty>0?'flex':'none';}
@@ -819,12 +915,16 @@ $has_item_type = in_array('item_type', $item_cols);
             $('#waiter-cart-summary').html(''); return;
         }
         var html='', sub=0, taxable=0;
-        cart.forEach(function(i){
+        cart.forEach(function(i, idx){
             var total=i.price*i.qty; sub+=total;
             if (!i.tax_free) taxable+=total;
             html+='<div class="cart-row-w"><div><div class="cr-name">'+i.name+'</div>'
                 + '<div class="cr-sub">'+i.qty+' x ৳'+i.price.toFixed(2)+(i.variants.length?'<br>['+i.variants.join(', ')+']':'')+'</div></div>'
-                + '<div class="cr-total">৳'+total.toFixed(2)+'</div></div>';
+                + '<div style="text-align:right;"><div class="cr-total">৳'+total.toFixed(2)+'</div>'
+                + '<div style="display:flex;gap:6px;justify-content:flex-end;margin-top:4px;">'
+                + '<button onclick="changeLine('+idx+',-1)" style="width:26px;height:26px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;">−</button>'
+                + '<button onclick="changeLine('+idx+',1)" style="width:26px;height:26px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;cursor:pointer;">+</button>'
+                + '</div></div></div>';
         });
         $('#waiter-cart-items').html(html);
 
@@ -885,6 +985,7 @@ $has_item_type = in_array('item_type', $item_cols);
                + '<div style="display:flex;justify-content:space-between;font-size:13px;"><span>Tax & Charges:</span><span>৳'+(vat+sc).toFixed(2)+'</span></div>'
                + '<div style="display:flex;justify-content:space-between;font-weight:bold;font-size:18px;margin-top:8px;color:var(--primary);"><span>Grand Total:</span><span>৳'+grand.toFixed(2)+'</span></div>'
                + '</div>'
+               + '<div style="margin-top:14px;display:grid;gap:8px;"><div style="font-size:12px;color:#64748b;">Customer (optional, saved to CRM if mobile is given)</div><input id="wc_name" type="text" maxlength="100" placeholder="Customer name" style="padding:10px;border:1px solid #cbd5e1;border-radius:10px;"><input id="wc_phone" type="tel" maxlength="20" placeholder="Mobile number (01XXXXXXXXX)" style="padding:10px;border:1px solid #cbd5e1;border-radius:10px;"></div>'
                + '<button id="finalBtn" onclick="submitOrder('+grand+','+sub+','+vat+','+sc+')" style="width:100%;background:#22c55e;color:#fff;border:none;padding:14px;border-radius:12px;font-weight:bold;margin-top:14px;cursor:pointer;font-size:15px;">CONFIRM</button>'
                + '<button onclick="closeVariant()" style="width:100%;background:none;border:none;margin-top:8px;color:#94a3b8;cursor:pointer;">Cancel</button>';
         $('#variant-modal-body').html(html);
@@ -896,7 +997,7 @@ $has_item_type = in_array('item_type', $item_cols);
         var btn = document.getElementById('finalBtn') || document.querySelector('#waiter-cart-summary .place-order-btn');
         if (btn) { btn.disabled=true; btn.textContent='Sending...'; }
         
-        var processed = cart.map(function(i){ return {id:i.id,name:i.name,price:i.price,qty:i.qty,variants_selected:i.variants.join(', ')}; });
+        var processed = cart.map(function(i){ return {id:i.id,name:i.name,price:i.price,qty:i.qty,variants_selected:i.variants.join(', '),size_value_ids:(i.size_ids||[]).join(',')}; });
 
         // ✨ LOCAL DEVICE TIME GENERATOR (MySQL Format: YYYY-MM-DD HH:MM:SS)
         var now = new Date();
@@ -910,6 +1011,7 @@ $has_item_type = in_array('item_type', $item_cols);
             table_name:currentTableName, restaurant_id:RES_ID,
             items:JSON.stringify(processed),
             subtotal:sub||0, tax_amount:vat||0, service_charge:sc||0, grand_total:grand||0,
+            customer_name: ($('#wc_name').val()||''), customer_phone: ($('#wc_phone').val()||''),
             local_time: localDeviceTime // 👈 payload e local time pathay dilam
         }, function(res){
             if (res.success) {
@@ -929,6 +1031,22 @@ $has_item_type = in_array('item_type', $item_cols);
             if (res.success) {
                 showToast('Order ' + status, 'success');
                 setTimeout(function(){ location.reload(); }, 1000);
+            }
+        });
+    };
+
+    window.reviewWaiterQrOrder = function(orderId, decision) {
+        $.post(qrrs_vars.ajax_url, {
+            action: 'qrrs_review_qr_order',
+            order_id: orderId,
+            decision: decision,
+            security: '<?php echo wp_create_nonce( 'qr_order_nonce' ); ?>'
+        }, function(res) {
+            if (res.success) {
+                showToast(decision === 'approve' ? 'QR order accepted' : 'QR order cancelled', 'success');
+                setTimeout(function(){ location.reload(); }, 700);
+            } else {
+                showToast('Error: ' + (res.data || 'Unable to review order'), 'error');
             }
         });
     };

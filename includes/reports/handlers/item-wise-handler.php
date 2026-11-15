@@ -1,6 +1,8 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit;
 
+require_once __DIR__ . '/addon-report.php';
+
 function handle_fetch_item_wise_report() {
     if ( ! isset($_POST['security']) || ! wp_verify_nonce($_POST['security'], 'qrrs_nonce_action') ) {
         wp_send_json_error('Security check failed.');
@@ -168,7 +170,7 @@ function handle_fetch_item_wise_report() {
 
     <?php
     $output = ob_get_clean();
+    $output .= qrrs_addon_report_html( $res_id, $start_date, $end_date, $currency );
     wp_send_json_success(array('data' => $output));
 }
 add_action('wp_ajax_fetch_item_wise_report', 'handle_fetch_item_wise_report');
-

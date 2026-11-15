@@ -7,6 +7,11 @@ function qrrs_create_restaurant( $data ) {
     global $wpdb;
     $table_name = $wpdb->prefix . 'qrrs_restaurants';
 
+    $kitchen_mode = isset( $data['kitchen_mode'] ) && $data['kitchen_mode'] === 'ready_food'
+        ? 'ready_food'
+        : 'active_kitchen';
+    $kitchen_capacity = max( 1, absint( $data['kitchen_capacity'] ?? 1 ) );
+
     $inserted = $wpdb->insert(
         $table_name,
         [
@@ -19,6 +24,8 @@ function qrrs_create_restaurant( $data ) {
             'currency_symbol'        => sanitize_text_field( $data['currency'] ),
             'tax_percent'            => floatval( $data['tax'] ),
             'service_charge_percent' => floatval( $data['service_charge'] ),
+            'kitchen_mode'           => $kitchen_mode,
+            'kitchen_capacity'       => $kitchen_capacity,
             'pos_printer_settings'   => sanitize_text_field( $data['pos_printer'] ),
             'status'                 => 'active',
             'created_at'             => current_time( 'mysql' )
@@ -32,6 +39,11 @@ function qrrs_update_restaurant_settings( $restaurant_id, $data ) {
     global $wpdb;
     $table_name = $wpdb->prefix . 'qrrs_restaurants';
 
+    $kitchen_mode = isset( $data['kitchen_mode'] ) && $data['kitchen_mode'] === 'ready_food'
+        ? 'ready_food'
+        : 'active_kitchen';
+    $kitchen_capacity = max( 1, absint( $data['kitchen_capacity'] ?? 1 ) );
+
     $updated = $wpdb->update(
         $table_name,
         [
@@ -43,6 +55,8 @@ function qrrs_update_restaurant_settings( $restaurant_id, $data ) {
             'currency_symbol'        => sanitize_text_field( $data['currency'] ),
             'tax_percent'            => floatval( $data['tax'] ),
             'service_charge_percent' => floatval( $data['service_charge'] ),
+            'kitchen_mode'           => $kitchen_mode,
+            'kitchen_capacity'       => $kitchen_capacity,
             'pos_printer_settings'   => sanitize_text_field( $data['pos_printer'] )
         ],
         [ 'id' => $restaurant_id ]

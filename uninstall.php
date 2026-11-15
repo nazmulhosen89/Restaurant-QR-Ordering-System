@@ -20,6 +20,7 @@ $tables = [
     'qrrs_items',
     'qrrs_orders',
     'qrrs_order_items',
+    'qrrs_order_customers',
     'qrrs_kitchen_sessions',
     'qrrs_inventory_categories',
     'qrrs_inventory_units',

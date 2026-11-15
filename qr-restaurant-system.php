@@ -1,11 +1,12 @@
 <?php
 /**
- * Plugin Name: NeXt Restro Automation Solutions
- * Description: A fully AI Powred Multi-Restaurant Automation Solutions with QR Ordering, Inventory, POS, and Lifetime Licensing.
- * Version: 1.2.0
+ * Plugin Name: DineX Restro Solutions.
+ * Tagline: Manage Smarter. Serve Faster. Grow Bigger.
+ * Description: Streamline restaurant operations with AI-powered automation. Manage orders, kitchen workflows, inventory, POS, and customer experiences from a single platform.
+ * Version: 1.5.8
  * Author: Nazmul Hosen
  * Links: www.nazmulh.com
- * Text Domain: qr-restaurant-system
+ * Text Domain: dinex-restro-system
  * License: GPLv2 or later
  * License URI: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  */
@@ -35,6 +36,39 @@ class QR_Restaurant_System {
         require_once QRRS_PATH . 'includes/restaurant/restaurant-functions.php';
         require_once QRRS_PATH . 'includes/license/license-functions.php';
         require_once QRRS_PATH . 'includes/inventory/inventory-functions.php';
+        require_once QRRS_PATH . 'includes/inventory/wastage.php';
+        require_once QRRS_PATH . 'includes/inventory/variant-recipes.php';
+require_once QRRS_PATH . 'includes/inventory/option-setup.php';
+require_once QRRS_PATH . 'includes/restaurant/online-settings.php';
+require_once QRRS_PATH . 'includes/restaurant/public-order.php';
+require_once QRRS_PATH . 'includes/crm/crm.php';
+require_once QRRS_PATH . 'includes/restaurant/otp.php';
+require_once QRRS_PATH . 'includes/restaurant/rooms.php';
+require_once QRRS_PATH . 'includes/restaurant/tracking.php';
+
+// Mark plugin app pages so the theme does not apply smooth-scroll (Lenis) to them.
+add_filter( 'body_class', function ( $classes ) {
+    $uri = $_SERVER['REQUEST_URI'] ?? '';
+    if ( preg_match( '#/(restaurant-dashboard|waiter-dashboard|kitchen-dashboard|online-order|track-order)(/|\?|$)#', $uri ) ) {
+        $classes[] = 'qrrs-app';
+    }
+    return $classes;
+} );
+
+// Allow .jfif images (a JPEG variant) in the media uploader
+add_filter( 'upload_mimes', function ( $mimes ) {
+    $mimes['jfif'] = 'image/jpeg';
+    return $mimes;
+} );
+add_filter( 'wp_check_filetype_and_ext', function ( $data, $file, $filename, $mimes, $real_mime = '' ) {
+    if ( empty( $data['ext'] ) || empty( $data['type'] ) ) {
+        if ( 'jfif' === strtolower( pathinfo( $filename, PATHINFO_EXTENSION ) ) && 'image/jpeg' === $real_mime ) {
+            return [ 'ext' => 'jfif', 'type' => 'image/jpeg', 'proper_filename' => false ];
+        }
+    }
+    return $data;
+}, 10, 5 );
+require_once QRRS_PATH . 'includes/inventory/order-stock.php';
         require_once QRRS_PATH . 'includes/menu/menu-functions.php';
         require_once QRRS_PATH . 'includes/order/order-functions.php';
         require_once QRRS_PATH . 'includes/subscriptions/subscription-functions.php';
@@ -63,13 +97,13 @@ class QR_Restaurant_System {
     private function maybe_upgrade_database() {
         $schema_version = get_option( 'qrrs_inventory_schema_version' );
 
-        if ( '1.0.0' === $schema_version ) {
+        if ( '1.1.0' === $schema_version ) {
             return;
         }
 
         if ( class_exists( 'QRRS_Database' ) ) {
             QRRS_Database::create_tables();
-            update_option( 'qrrs_inventory_schema_version', '1.0.0' );
+            update_option( 'qrrs_inventory_schema_version', '1.1.0' );
         }
     }
 
@@ -304,18 +338,85 @@ function handle_qr_order_placement() {
     $res_id   = intval($_POST['restaurant_id']);
     $table_id = intval($_POST['table_id']);
     $order_type = sanitize_key( $_POST['order_type'] ?? 'take_out' );
+    $requested_source = sanitize_key( $_POST['order_source'] ?? 'qr' );
     $items    = json_decode(wp_unslash($_POST['items']), true);
 
     if ( empty($items) ) { wp_send_json_error('Cart is empty.'); }
+
+    if ( ! $res_id || ! in_array( $order_type, [ 'dine_in', 'take_out', 'delivery', 'room_service' ], true ) ) {
+        wp_send_json_error( 'Invalid order details.' );
+    }
+
+    // Server recalculates every line (price, size, add-ons). The browser's prices are not trusted.
+    $checked = qrrs_validate_order_items( $res_id, $items );
+    if ( is_string( $checked ) ) {
+        wp_send_json_error( $checked );
+    }
+    $items            = $checked['lines'];
+    $checked_subtotal = $checked['subtotal'];
+    $checked_taxable  = $checked['taxable'];
+
+    $is_pos_order = $requested_source === 'pos'
+        && is_user_logged_in()
+        && function_exists( 'qrrs_current_user_can_operate_restaurant' )
+        && qrrs_current_user_can_operate_restaurant( $res_id );
+    $order_source = $is_pos_order ? 'pos' : 'qr';
 
     if ( 'delivery' === $order_type && function_exists( 'qrrs_can_use_feature' ) && ! qrrs_can_use_feature( 'delivery' ) ) {
         wp_send_json_error( 'Delivery orders are available in Pro only.' );
     }
 
+    // Customer details. Mandatory for customer-facing orders (online, delivery, table QR = source 'qr').
+    // Counter and waiter orders may leave them empty.
+    $cust_name  = sanitize_text_field( wp_unslash( $_POST['customer_name'] ?? '' ) );
+    $cust_phone = qrrs_normalize_phone( sanitize_text_field( wp_unslash( $_POST['customer_phone'] ?? '' ) ) );
+    $cust_addr  = sanitize_textarea_field( wp_unslash( $_POST['delivery_address'] ?? '' ) );
+    $cust_note  = sanitize_textarea_field( wp_unslash( $_POST['delivery_note'] ?? '' ) );
+    $source     = sanitize_key( $_POST['order_source'] ?? '' );
+    $customer_required = ( 'qr' === $source ) || ( 'delivery' === $order_type );
+    if ( $customer_required ) {
+        if ( mb_strlen( trim( $cust_name ) ) < 2 || ! preg_match( '/^01[3-9]\d{8}$/', $cust_phone ) ) {
+            wp_send_json_error( 'Please enter your name and a valid mobile number.' );
+        }
+        if ( 'delivery' === $order_type && mb_strlen( trim( $cust_addr ) ) < 5 ) {
+            wp_send_json_error( 'Please enter your delivery address.' );
+        }
+    }
+    $delivery_customer = [];
+    if ( '' !== $cust_name || '' !== $cust_phone ) {
+        $delivery_customer = [
+            'customer_name'    => $cust_name,
+            'customer_phone'   => $cust_phone,
+            'delivery_address' => $cust_addr,
+            'delivery_note'    => $cust_note,
+        ];
+    }
+
     $subtotal       = floatval($_POST['subtotal']);
+    if ( abs( $subtotal - $checked_subtotal ) > 0.01 ) {
+        wp_send_json_error( 'Prices have changed. Please refresh the page and try again.' );
+    }
     $tax_amount     = floatval($_POST['tax_amount']);
     $service_charge = floatval($_POST['service_charge']);
     $grand_total    = floatval($_POST['grand_total']);
+
+    // VAT, service charge and total are calculated here from the restaurant's rates.
+    // The browser's numbers must match; otherwise the order is not taken.
+    // Delivery charge comes only from the server-side public order check (never from the request).
+    $delivery_charge = ( 'delivery' === $order_type && isset( $GLOBALS['qrrs_public_delivery_charge'] ) )
+        ? floatval( $GLOBALS['qrrs_public_delivery_charge'] )
+        : 0.0;
+    $charges = qrrs_compute_charges( $res_id, $checked_subtotal, $checked_taxable, $order_type, $delivery_charge );
+    if (
+        abs( $tax_amount - $charges['vat'] ) > 0.01 ||
+        abs( $service_charge - $charges['sc'] ) > 0.01 ||
+        abs( $grand_total - $charges['grand'] ) > 0.01
+    ) {
+        wp_send_json_error( 'Prices have changed. Please refresh the page and try again.' );
+    }
+    $tax_amount     = $charges['vat'];
+    $service_charge = $charges['sc'];
+    $grand_total    = $charges['grand'];
 
     $final_table_name = 'Take Out';
     if ( $table_id > 0 ) {
@@ -328,17 +429,28 @@ function handle_qr_order_placement() {
     
     $wp_timezone = wp_timezone();
     $local_now   = new DateTime('now', $wp_timezone);
+    $kitchen_settings = function_exists( 'qrrs_get_restaurant_kitchen_settings' )
+        ? qrrs_get_restaurant_kitchen_settings( $res_id )
+        : [ 'mode' => 'active_kitchen', 'capacity' => 1 ];
+    $order_status = $order_source === 'qr'
+        ? 'awaiting_verification'
+        : ( $kitchen_settings['mode'] === 'ready_food' ? 'ready' : 'pending' );
+    $verification_status = $order_source === 'qr' ? 'pending' : 'approved';
 
     $order_data = [
         'restaurant_id'  => $res_id,
         'table_name'     => $final_table_name,
         'order_type'     => $order_type,
+        'order_source'   => $order_source,
+        'verification_status' => $verification_status,
         'waiter_id'      => get_current_user_id(),
         'total_amount'   => $subtotal,
         'tax_amount'     => $tax_amount,
         'service_charge' => $service_charge,
         'grand_total'    => $grand_total,
-        'order_status'   => 'pending',
+        'delivery_charge'=> $charges['delivery'],
+        'order_status'   => $order_status,
+        'ready_at'       => $order_status === 'ready' ? $local_now->format('Y-m-d H:i:s') : null,
         'payment_status' => 'unpaid',
         'created_at'     => $local_now->format('Y-m-d H:i:s') // 👈 লোকাল ডিভাইস টাইম পুশ করা হলো
     ];
@@ -348,6 +460,27 @@ function handle_qr_order_placement() {
 
     $order_id = $wpdb->insert_id;
 
+    if ( $delivery_customer ) {
+        $customer_inserted = $wpdb->insert(
+            $wpdb->prefix . 'qrrs_order_customers',
+            array_merge( [
+                'order_id'      => $order_id,
+                'restaurant_id' => $res_id,
+                'created_at'    => $local_now->format('Y-m-d H:i:s'),
+            ], $delivery_customer ),
+            [ '%d', '%d', '%s', '%s', '%s', '%s', '%s' ]
+        );
+
+        if ( $customer_inserted && function_exists( 'qrrs_crm_upsert' ) ) {
+            qrrs_crm_upsert( $res_id, $cust_name, $cust_phone, $cust_addr );
+        }
+
+        if ( false === $customer_inserted ) {
+            $wpdb->delete( $order_table, [ 'id' => $order_id ], [ '%d' ] );
+            wp_send_json_error( 'Could not save delivery customer details.' );
+        }
+    }
+
     foreach ( $items as $item ) {
         $wpdb->insert($items_table, [
             'order_id'          => $order_id,
@@ -355,12 +488,22 @@ function handle_qr_order_placement() {
             'restaurant_id'     => $res_id,
             'item_name'         => sanitize_text_field($item['name']),
             'variants_selected' => sanitize_text_field($item['variants_selected']),
+            'size_value_ids'    => sanitize_text_field($item['size_value_ids'] ?? ''),
+            'size_name'         => sanitize_text_field($item['size_name'] ?? ''),
             'quantity'          => intval($item['qty']),
             'price'             => floatval($item['price']),
-            'item_status'       => 'pending'
+            'item_status'       => $order_status === 'ready' ? 'ready' : 'pending'
         ]);
     }
-    wp_send_json_success('Order placed successfully!');
+    $track_code = function_exists( 'qrrs_make_track_code' ) ? qrrs_make_track_code( $order_table ) : '';
+    if ( $track_code ) {
+        $wpdb->update( $order_table, [ 'tracking_code' => $track_code ], [ 'id' => $order_id ] );
+    }
+    $placed = apply_filters( 'qrrs_order_placed_response', 'Order placed successfully!', [
+        'order_id'   => (int) $order_id,
+        'track_code' => $track_code,
+    ] );
+    wp_send_json_success( $placed );
 }
 
 /**
@@ -404,6 +547,7 @@ function handle_update_dashboard_order_status() {
     );
 
     if ( $updated !== false ) {
+        do_action( 'qrrs_order_status_changed', $order_id, $status );
         $wpdb->update(
             $wpdb->prefix . 'qrrs_order_items',
             array('item_status' => $status),

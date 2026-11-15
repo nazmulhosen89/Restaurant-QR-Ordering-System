@@ -41,6 +41,7 @@ $sound_url    = QRRS_URL . 'assets/sounds/notification 01.mp3';
             </div>
             <div id="user-dropdown" style="display:none; position:absolute; right:0; top:55px; background:#2d2d2d; min-width:200px; box-shadow:0 10px 30px rgba(0,0,0,0.5); border-radius:10px; z-index:1000; overflow:hidden; border:1px solid #3d3d3d;">
                 <a href="?tab=requisition"><span>INV</span> Requisition</a>
+                <a href="?tab=wastage"><span>WST</span> Wastage</a>
                 <a href="?tab=profile"><span>👤</span> Profile Settings</a>
                 <a href="?tab=orders"><span>🍳</span> Orders View</a>
                 <a href="<?php echo wp_logout_url(home_url('/restaurant-login/')); ?>" style="color:#ff7675;"><span>👋</span> Logout</a>
@@ -55,6 +56,8 @@ $sound_url    = QRRS_URL . 'assets/sounds/notification 01.mp3';
             if (file_exists($profile_path)) include $profile_path;
             ?>
         </div>
+    <?php elseif ($current_tab === 'wastage'): ?>
+        <?php if ( function_exists( 'qrrs_wastage_panel' ) ) { qrrs_wastage_panel( 'kitchen' ); } ?>
     <?php elseif ($current_tab === 'requisition'): ?>
         <?php
         if ( function_exists( 'qrrs_inventory_render_requisition_panel' ) ) {
@@ -69,6 +72,7 @@ $sound_url    = QRRS_URL . 'assets/sounds/notification 01.mp3';
             <div class="k-stat-box" style="border-color:#e67e22;"><strong><span id="k-takeaway">0</span></strong><small>Take Away</small></div>
             <div class="k-stat-box" style="border-color:#2ecc71;"><strong><span id="k-completed">0</span></strong><small>Completed</small></div>
             <div class="k-stat-box" style="border-color:#e74c3c;"><strong><span id="k-cancelled">0</span></strong><small>Cancelled</small></div>
+            <div class="k-stat-box" style="border-color:#8b5cf6;"><strong><span id="k-capacity">1</span></strong><small>Kitchen Counters</small></div>
         </div>
         <div id="kitchen-display-grid" class="kitchen-grid"></div>
     <?php endif; ?>
@@ -180,6 +184,7 @@ function loadKitchenOrders() {
         jQuery('#k-takeaway').text(s.take_away || 0);
         jQuery('#k-completed').text(s.complete || 0);
         jQuery('#k-cancelled').text(s.cancel || 0);
+        jQuery('#k-capacity').text(res.data.kitchen_capacity || 1);
 
         const orders = res.data.orders || [];
 
@@ -216,6 +221,9 @@ function loadKitchenOrders() {
                     </div>
                 </div>
                 <div class="k-card-body">
+                    <div style="margin-bottom:10px; padding:8px 10px; border-radius:6px; background:#eff6ff; color:#1d4ed8; font-size:12px; font-weight:700;">
+                        Estimated ready in ${o.estimated_ready_minutes || 0} min
+                    </div>
                     ${itemsHtml}
                 </div>
                 <div class="k-card-footer">

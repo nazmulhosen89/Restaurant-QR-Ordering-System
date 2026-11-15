@@ -80,6 +80,23 @@ if ( isset($_POST['save_restaurant']) ) {
                 </div>
             </div>
 
+            <?php $kitchen_mode = $edit_mode && ! empty( $res_data->kitchen_mode ) ? $res_data->kitchen_mode : 'active_kitchen'; ?>
+            <div class="form-row">
+                <div class="form-col">
+                    <label>Food Preparation Mode</label>
+                    <select name="kitchen_mode" id="qrrs-kitchen-mode">
+                        <option value="active_kitchen" <?php selected( $kitchen_mode, 'active_kitchen' ); ?>>Active Kitchen (send orders to KOT)</option>
+                        <option value="ready_food" <?php selected( $kitchen_mode, 'ready_food' ); ?>>Ready Food (skip cooking step)</option>
+                    </select>
+                    <small style="display:block; margin-top:6px; color:#64748b;">Ready Food orders are accepted as ready and do not show a Start Cooking action.</small>
+                </div>
+                <div class="form-col" id="qrrs-kitchen-capacity-wrap">
+                    <label>Kitchen Counters / Burners</label>
+                    <input type="number" min="1" step="1" name="kitchen_capacity" value="<?php echo $edit_mode ? max( 1, intval( $res_data->kitchen_capacity ?? 1 ) ) : 1; ?>">
+                    <small style="display:block; margin-top:6px; color:#64748b;">Used to calculate the estimated KOT queue time.</small>
+                </div>
+            </div>
+
             <div class="form-row">
                 <div class="form-col">
                     <label>Restaurant Address</label>
@@ -153,6 +170,7 @@ if ( isset($_POST['save_restaurant']) ) {
                         <th>Contact Number</th>
                         <th>BIN Number</th>
                         <th>Tax/Service</th>
+                        <th>Kitchen Mode</th>
                         <th>Status</th>
                         <th>Action</th>
                     </tr>
@@ -185,6 +203,10 @@ if ( isset($_POST['save_restaurant']) ) {
                         <td>
                             VAT: <?php echo $res->tax_percent; ?>%<br>
                             SC: <?php echo $res->service_charge_percent; ?>%
+                        </td>
+                        <td>
+                            <?php echo ( $res->kitchen_mode ?? 'active_kitchen' ) === 'ready_food' ? 'Ready Food' : 'Active Kitchen'; ?><br>
+                            <small><?php echo intval( $res->kitchen_capacity ?? 1 ); ?> counter(s)</small>
                         </td>
                         <td>
                             <span class="status-badge <?php echo $res->status == 'active' ? 'active' : 'inactive'; ?>">
@@ -238,5 +260,11 @@ jQuery(document).ready(function($){
             }, 500);
         }, 3000);
     }
+
+    function toggleKitchenCapacity() {
+        $('#qrrs-kitchen-capacity-wrap').toggle($('#qrrs-kitchen-mode').val() === 'active_kitchen');
+    }
+    $('#qrrs-kitchen-mode').on('change', toggleKitchenCapacity);
+    toggleKitchenCapacity();
 });
 </script>

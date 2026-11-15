@@ -49,7 +49,8 @@ function qrrs_get_order_for_edit() {
     if (!$order_id) { wp_send_json_error('Missing order ID'); return; }
 
     $items = $wpdb->get_results($wpdb->prepare(
-        "SELECT item_id as id, item_name as name, price, quantity as qty, variants_selected
+        "SELECT item_id as id, item_name as name, price, quantity as qty, variants_selected, size_value_ids,
+                (SELECT mi.is_tax_free FROM {$wpdb->prefix}qrrs_items mi WHERE mi.id = item_id LIMIT 1) AS tax_free
          FROM {$wpdb->prefix}qrrs_order_items
          WHERE order_id = %d AND item_type != 'additional'",
         $order_id
@@ -57,7 +58,7 @@ function qrrs_get_order_for_edit() {
 
     if ($wpdb->last_error) {
         $items = $wpdb->get_results($wpdb->prepare(
-            "SELECT item_id as id, item_name as name, price, quantity as qty, variants_selected
+            "SELECT item_id as id, item_name as name, price, quantity as qty, variants_selected, '' as size_value_ids, 0 as tax_free
              FROM {$wpdb->prefix}qrrs_order_items WHERE order_id = %d", $order_id
         ));
     }
@@ -67,7 +68,9 @@ function qrrs_get_order_for_edit() {
         $vars = !empty($item->variants_selected)
             ? array_map('trim', explode(',', $item->variants_selected))
             : [];
-        $key = $item->id . (!empty($vars) ? '-'.implode('-', $vars) : '');
+        $size_ids = array_values(array_filter(array_map('intval', explode(',', (string) $item->size_value_ids))));
+        // Same key format as the waiter cart uses when adding items: id|sizes|addons
+        $key = $item->id . '|' . implode(',', $size_ids) . '|' . implode(',', $vars);
         $cart_format[] = [
             'key'      => $key,
             'id'       => intval($item->id),
@@ -75,7 +78,8 @@ function qrrs_get_order_for_edit() {
             'price'    => floatval($item->price),
             'qty'      => intval($item->qty),
             'variants' => $vars,
-            'tax_free' => 0,
+            'size_ids' => $size_ids,
+            'tax_free' => intval($item->tax_free),
         ];
     }
     wp_send_json_success($cart_format);
@@ -98,6 +102,25 @@ function qrrs_submit_waiter_order() {
 
     if (empty($items) || !is_array($items)) { wp_send_json_error('Cart is empty!'); return; }
 
+    // Server recalculates prices, sizes, add-ons, VAT and service charge (waiter orders are dine-in).
+    $checked = qrrs_validate_order_items($restaurant_id, $items);
+    if (is_string($checked)) { wp_send_json_error($checked); return; }
+    $items = $checked['lines'];
+    $charges = qrrs_compute_charges($restaurant_id, $checked['subtotal'], $checked['taxable'], 'dine_in');
+    if (
+        abs($subtotal - $checked['subtotal']) > 0.01 ||
+        abs($tax_amount - $charges['vat']) > 0.01 ||
+        abs($service_charge - $charges['sc']) > 0.01 ||
+        abs($grand_total - $charges['grand']) > 0.01
+    ) {
+        wp_send_json_error('Prices have changed. Please refresh the page and try again.');
+        return;
+    }
+    $subtotal       = $checked['subtotal'];
+    $tax_amount     = $charges['vat'];
+    $service_charge = $charges['sc'];
+    $grand_total    = $charges['grand'];
+
     if ( strtolower( trim( $table_name ) ) === 'delivery' && function_exists( 'qrrs_can_use_feature' ) && ! qrrs_can_use_feature( 'delivery' ) ) {
         wp_send_json_error( 'Delivery orders are available in Pro only.' );
         return;
@@ -112,6 +135,11 @@ function qrrs_submit_waiter_order() {
 
         if (!$table_name || !$restaurant_id) { wp_send_json_error('Missing info.'); return; }
 
+        $kitchen_settings = function_exists( 'qrrs_get_restaurant_kitchen_settings' )
+            ? qrrs_get_restaurant_kitchen_settings( $restaurant_id )
+            : [ 'mode' => 'active_kitchen' ];
+        $initial_status = $kitchen_settings['mode'] === 'ready_food' ? 'ready' : 'pending';
+
 
         $wp_timezone     = wp_timezone(); 
         $local_datetime  = new DateTime('now', $wp_timezone);
@@ -124,7 +152,8 @@ function qrrs_submit_waiter_order() {
             'tax_amount'     => $tax_amount,
             'service_charge' => $service_charge,
             'grand_total'    => $grand_total,
-            'order_status'   => 'pending',
+            'order_status'   => $initial_status,
+            'ready_at'       => $initial_status === 'ready' ? $exact_local_time : null,
             'payment_status' => 'unpaid',
             'created_at'     => $exact_local_time,             
             'waiter_id'      => get_current_user_id(),
@@ -140,7 +169,9 @@ function qrrs_submit_waiter_order() {
                 'price'             => floatval($item['price']),
                 'quantity'          => intval($item['qty']),
                 'variants_selected' => sanitize_text_field($item['variants_selected'] ?? ''),
-                'item_status'       => 'pending',
+                'size_value_ids'    => sanitize_text_field($item['size_value_ids'] ?? ''),
+                'size_name'         => sanitize_text_field($item['size_name'] ?? ''),
+                'item_status'       => $initial_status === 'ready' ? 'ready' : 'pending',
                 'item_type'         => 'original',
                 'restaurant_id'     => $restaurant_id,
             ]);
@@ -168,6 +199,8 @@ function qrrs_submit_waiter_order() {
                 'price'             => floatval($item['price']),
                 'quantity'          => intval($item['qty']),
                 'variants_selected' => sanitize_text_field($item['variants_selected'] ?? ''),
+                'size_value_ids'    => sanitize_text_field($item['size_value_ids'] ?? ''),
+                'size_name'         => sanitize_text_field($item['size_name'] ?? ''),
                 'item_status'       => 'pending',
                 'item_type'         => 'original',
                 'restaurant_id'     => $restaurant_id,
@@ -197,8 +230,8 @@ function qrrs_submit_waiter_order() {
 
             $existing_item = $wpdb->get_row($wpdb->prepare(
                 "SELECT id, quantity FROM {$wpdb->prefix}qrrs_order_items
-                 WHERE order_id = %d AND item_id = %d AND item_type = 'additional' AND variants_selected = %s",
-                $order_id, $item_id, $variants
+                 WHERE order_id = %d AND item_id = %d AND item_type = 'additional' AND variants_selected = %s AND size_value_ids = %s",
+                $order_id, $item_id, $variants, sanitize_text_field($item['size_value_ids'] ?? '')
             ));
 
             if ($existing_item) {
@@ -215,6 +248,8 @@ function qrrs_submit_waiter_order() {
                     'price'             => floatval($item['price']),
                     'quantity'          => $qty,
                     'variants_selected' => $variants,
+                    'size_value_ids'    => sanitize_text_field($item['size_value_ids'] ?? ''),
+                    'size_name'         => sanitize_text_field($item['size_name'] ?? ''),
                     'item_status'       => 'pending',
                     'item_type'         => 'additional',
                     'restaurant_id'     => $restaurant_id,
@@ -248,6 +283,28 @@ function qrrs_submit_waiter_order() {
             ['%f', '%f', '%f', '%f'],
             ['%d']
         );
+    }
+
+    // Optional customer details. Saved to the order and CRM only when a valid mobile number is given.
+    $wc_name  = sanitize_text_field(wp_unslash($_POST['customer_name'] ?? ''));
+    $wc_phone = function_exists('qrrs_normalize_phone') ? qrrs_normalize_phone(sanitize_text_field(wp_unslash($_POST['customer_phone'] ?? ''))) : '';
+    if ($order_id > 0 && preg_match('/^01[3-9]\d{8}$/', $wc_phone)) {
+        $oc_t = $wpdb->prefix . 'qrrs_order_customers';
+        $existing = $wpdb->get_row($wpdb->prepare("SELECT id, delivery_address FROM $oc_t WHERE order_id = %d", $order_id));
+        // Never overwrite a delivery customer's address
+        if (!$existing || '' === trim((string) $existing->delivery_address)) {
+            if ($existing) { $wpdb->delete($oc_t, ['order_id' => $order_id]); }
+            $name = $wc_name !== '' ? $wc_name : 'Walk-in';
+            $wpdb->insert($oc_t, [
+                'order_id' => $order_id, 'restaurant_id' => $restaurant_id,
+                'customer_name' => $name, 'customer_phone' => $wc_phone,
+                'delivery_address' => '', 'delivery_note' => '',
+                'created_at' => current_time('mysql'),
+            ]);
+            if (function_exists('qrrs_crm_upsert')) {
+                qrrs_crm_upsert($restaurant_id, $name, $wc_phone, '');
+            }
+        }
     }
 
     wp_send_json_success(['order_id' => $order_id, 'message' => 'Success!']);

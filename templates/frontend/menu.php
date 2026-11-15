@@ -204,11 +204,19 @@ if ($active_order) {
     return;
 }
 
+
 $categories = $wpdb->get_results($wpdb->prepare(
-    "SELECT * FROM $cat_table WHERE restaurant_id = %d ORDER BY id ASC", $res_id
+    "SELECT * FROM $cat_table WHERE restaurant_id = %d AND (status != 'inactive' OR status IS NULL) ORDER BY id ASC", 
+    $res_id
 ));
+
+
 $items = $wpdb->get_results($wpdb->prepare(
-    "SELECT * FROM $items_table WHERE restaurant_id = %d", $res_id
+    "SELECT i.* FROM $items_table i 
+     JOIN $cat_table c ON i.category_id = c.id 
+     WHERE i.restaurant_id = %d 
+     AND (c.status != 'inactive' OR c.status IS NULL)", 
+    $res_id
 ));
 ?>
 
@@ -320,7 +328,7 @@ $items = $wpdb->get_results($wpdb->prepare(
             </svg>
         </div>
         <h2 style="margin:20px 0 10px; color:#1e293b;">Thank You!</h2>
-        <p style="color:#64748b; font-size:16px;">Your order has been placed successfully.</p>
+        <p style="color:#64748b; font-size:16px;">Your order is waiting for restaurant confirmation.</p>
         <p style="margin-top:15px; font-size:13px; color:#94a3b8;">
             Redirecting to home in <span id="timer">3</span> seconds...
         </p>
@@ -337,48 +345,113 @@ const TAX_RATE = <?php echo floatval($db_tax); ?>;
 const SC_RATE  = <?php echo floatval($db_sc); ?>;
 let cart = [];
 
-function prepareItem(item) {
-    let rawVar = item.variants || item.variants_json || "";
-    let variants = [];
-    try {
-        if (typeof rawVar === 'string' && rawVar.trim() !== "" && rawVar !== "[]") {
-            variants = JSON.parse(rawVar);
-        } else if (Array.isArray(rawVar)) {
-            variants = rawVar;
-        }
-    } catch(e) { variants = []; }
+let tqPending = null;
+let tqOptionCache = {};
 
-    if (variants.length > 0) {
-        let name = item.item_name || item.name;
-        let html = `<h3 style="margin:0 0 15px 0;">${name}</h3>
-                    <p style="color:#64748b; font-size:14px; margin-bottom:15px;">Select Variant:</p>`;
-        variants.forEach(v => {
-            html += `<label style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:10px; cursor:pointer;">
-                        <input type="checkbox" class="v_opt_cb" value="${v}" style="width:18px; height:18px;">
-                        <span style="font-weight:500;">${v}</span>
-                     </label>`;
-        });
-        html += `<button onclick='confirmAdd(${JSON.stringify(item)})' 
-                         style="width:100%; background:var(--primary); color:#fff; border:none; padding:15px; border-radius:12px; font-weight:bold; cursor:pointer; font-size:16px;">
-                     Add to Order
-                 </button>`;
-        html += `<button onclick="closeM()" style="width:100%; background:none; border:none; margin-top:10px; color:#94a3b8; cursor:pointer;">Cancel</button>`;
-        document.getElementById('vBody').innerHTML = html;
-        document.getElementById('vModal').style.display = 'flex';
-    } else {
-        addToCart(item, []);
-    }
+function tqEsc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function tqParseLegacy(item) {
+    let raw = item.variants || item.variants_json || "";
+    try {
+        if (typeof raw === 'string' && raw.trim() !== "" && raw !== "[]") return JSON.parse(raw) || [];
+        if (Array.isArray(raw)) return raw;
+    } catch (e) {}
+    return [];
 }
 
-function confirmAdd(item) {
-    let selected = [];
-    document.querySelectorAll('.v_opt_cb:checked').forEach(cb => selected.push(cb.value));
-    addToCart(item, selected);
+function tqFetchOptions(itemId) {
+    if (tqOptionCache[itemId]) return Promise.resolve(tqOptionCache[itemId]);
+    const body = new URLSearchParams({ action: 'qrrs_get_item_options', restaurant_id: <?php echo intval($res_id); ?>, item_id: itemId });
+    return fetch(qrrs_vars.ajax_url, { method: 'POST', body: body })
+        .then(r => r.json())
+        .then(j => {
+            const groups = (j && j.success && j.data && j.data.groups) ? j.data.groups : [];
+            tqOptionCache[itemId] = groups;
+            return groups;
+        })
+        .catch(() => []);
+}
+
+function prepareItem(item) {
+    tqPending = item;
+    const legacy = tqParseLegacy(item);
+    tqFetchOptions(item.id).then(groups => {
+        if (groups.length === 0 && legacy.length === 0) {
+            addToCart(item, [], [], [], parseFloat(item.price));
+            return;
+        }
+        tqRenderOptions(item, groups, legacy);
+    });
+}
+
+function tqRenderOptions(item, groups, legacy) {
+    let html = `<h3 style="margin:0 0 12px 0;">${tqEsc(item.item_name || item.name)}</h3>`;
+    groups.forEach(g => {
+        html += `<p style="font-weight:700; margin:14px 0 6px;">${tqEsc(g.name)}${g.type === 'size' && g.required ? ' <span style="color:#dc2626;">*</span>' : ''}</p>`;
+        if (g.type === 'size') {
+            if (!g.required) {
+                html += `<label style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:8px; cursor:pointer;"><input type="radio" name="tq_size_${g.id}" value="0" checked data-price="0" data-name=""><span>None</span></label>`;
+            }
+            g.values.forEach(v => {
+                html += `<label style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:8px; cursor:pointer;"><input type="radio" class="tq_size" name="tq_size_${g.id}" value="${v.id}" data-price="${v.price}" data-name="${tqEsc(v.name)}"><span style="font-weight:500;">${tqEsc(v.name)}</span><span style="margin-left:auto; font-weight:700;">${Number(v.price).toFixed(2)}৳</span></label>`;
+            });
+        } else {
+            g.values.forEach(v => {
+                html += `<label style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:10px; cursor:pointer;"><input type="checkbox" class="v_opt_cb" value="${tqEsc(v.name)}" data-price="${v.price}" data-name="${tqEsc(v.name)}" style="width:18px; height:18px;"><span style="font-weight:500;">${tqEsc(v.name)}</span><span style="margin-left:auto; color:#64748b;">+${Number(v.price).toFixed(2)}৳</span></label>`;
+            });
+        }
+    });
+    if (legacy.length) {
+        html += `<p style="font-weight:700; margin:14px 0 6px;">Extras</p>`;
+        legacy.forEach(v => {
+            html += `<label style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:10px; cursor:pointer;"><input type="checkbox" class="v_opt_cb" value="${tqEsc(v)}" data-price="0" data-name="${tqEsc(v)}" style="width:18px; height:18px;"><span style="font-weight:500;">${tqEsc(v)}</span></label>`;
+        });
+    }
+    html += `<p id="tq_total" style="font-weight:700; text-align:right; margin:12px 0;"></p>`;
+    html += `<button onclick="confirmAdd()" style="width:100%; background:var(--primary); color:#fff; border:none; padding:15px; border-radius:12px; font-weight:bold; cursor:pointer; font-size:16px;">Add to Order</button>`;
+    html += `<button onclick="closeM()" style="width:100%; background:none; border:none; margin-top:10px; color:#94a3b8; cursor:pointer;">Cancel</button>`;
+    document.getElementById('vBody').innerHTML = html;
+    document.getElementById('vModal').style.display = 'flex';
+    document.querySelectorAll('#vBody input').forEach(el => el.addEventListener('change', tqUpdateTotal));
+    tqUpdateTotal();
+}
+
+function tqSelection() {
+    const groups = tqOptionCache[tqPending.id] || [];
+    const hasRequiredSize = groups.some(g => g.type === 'size' && g.required);
+    let price = hasRequiredSize ? 0 : parseFloat(tqPending.price);
+    let sizeIds = [], sizeNames = [], addons = [];
+    document.querySelectorAll('input.tq_size:checked').forEach(el => {
+        sizeIds.push(el.value); sizeNames.push(el.dataset.name); price += parseFloat(el.dataset.price || 0);
+    });
+    document.querySelectorAll('.v_opt_cb:checked').forEach(el => {
+        addons.push(el.dataset.name || el.value); price += parseFloat(el.dataset.price || 0);
+    });
+    return { sizeIds, sizeNames, addons, price };
+}
+
+function tqUpdateTotal() {
+    const el = document.getElementById('tq_total');
+    if (el && tqPending) el.textContent = 'Total: ' + tqSelection().price.toFixed(2) + '৳';
+}
+
+function confirmAdd() {
+    if (!tqPending) return;
+    const groups = tqOptionCache[tqPending.id] || [];
+    for (const g of groups) {
+        if (g.type === 'size' && g.required && !document.querySelector(`input[name="tq_size_${g.id}"]:checked`)) {
+            alert('Please choose: ' + g.name); return;
+        }
+    }
+    const sel = tqSelection();
+    addToCart(tqPending, sel.addons, sel.sizeIds, sel.sizeNames, sel.price);
     closeM();
 }
 
-function addToCart(item, variants) {
-    let key = item.id + variants.join('');
+function addToCart(item, variants, sizeIds = [], sizeNames = [], unitPrice = null) {
+    const price = (unitPrice === null) ? parseFloat(item.price) : unitPrice;
+    const label = sizeNames.join(' + ');
+    const key = item.id + '|' + sizeIds.join(',') + '|' + variants.join(',');
     let exist = cart.find(x => x.key === key);
     if (exist) {
         exist.qty++;
@@ -386,9 +459,10 @@ function addToCart(item, variants) {
         cart.push({
             key: key,
             id: item.id,
-            name: item.item_name || item.name,
-            price: parseFloat(item.price),
+            name: (item.item_name || item.name) + (label ? ' (' + label + ')' : ''),
+            price: price,
             variants: variants,
+            size_ids: sizeIds,
             qty: 1,
             tax_free: parseInt(item.is_tax_free || 0)
         });
@@ -397,7 +471,10 @@ function addToCart(item, variants) {
 }
 
 function updateQty(id, delta) {
-    let itemIdx = cart.findIndex(x => x.id == id);
+    // Card +/- changes the most recently added line of this item.
+    // To add another size or add-on combination, tap the item card to open its options.
+    let itemIdx = -1;
+    cart.forEach((x, i) => { if (x.id == id) itemIdx = i; });
     if (itemIdx > -1) {
         cart[itemIdx].qty += delta;
         if (cart[itemIdx].qty <= 0) cart.splice(itemIdx, 1);
@@ -535,6 +612,11 @@ function showOrderPreview() {
                 <span style="color:var(--primary);">${grand.toFixed(2)}৳</span>
             </div>
         </div>
+        <div style="margin-top:14px; display:grid; gap:8px;">
+            <input id="tqName" type="text" maxlength="100" placeholder="Your name *" style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:10px; font-size:15px;">
+            <input id="tqPhone" type="tel" maxlength="20" placeholder="Mobile number * (01XXXXXXXXX)" style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:10px; font-size:15px;">
+            <div id="tqErr" style="color:#dc2626; font-size:13px; min-height:16px;"></div>
+        </div>
         <button id="finalConfirmBtn" onclick="processFinalOrder(${grand})" 
                 style="width:100%; background:#22c55e; color:#fff; border:none; padding:15px; border-radius:12px; font-weight:bold; margin-top:15px; cursor:pointer; font-size:16px;">
             CONFIRM & SEND
@@ -549,6 +631,13 @@ function showOrderPreview() {
 }
 
 function processFinalOrder(grandTotal) {
+    const custName  = (document.getElementById('tqName') ? document.getElementById('tqName').value : '').trim();
+    const custPhone = (document.getElementById('tqPhone') ? document.getElementById('tqPhone').value : '').replace(/[\s-]/g, '');
+    const errEl = document.getElementById('tqErr');
+    if (custName.length < 2) { if (errEl) errEl.textContent = 'Please enter your name.'; return; }
+    if (!/^(?:\+?880|0)?1[3-9]\d{8}$/.test(custPhone)) { if (errEl) errEl.textContent = 'Please enter a valid mobile number.'; return; }
+    if (errEl) errEl.textContent = '';
+
     const btn = document.getElementById('finalConfirmBtn');
     btn.disabled = true;
     btn.innerText = 'Processing...';
@@ -563,7 +652,8 @@ function processFinalOrder(grandTotal) {
         name: item.name,
         price: item.price,
         qty: item.qty,
-        variants_selected: item.variants.join(', ')
+        variants_selected: item.variants.join(', '),
+        size_value_ids: (item.size_ids || []).join(',')
     }));
 
     jQuery.ajax({
@@ -573,6 +663,10 @@ function processFinalOrder(grandTotal) {
             action: 'place_qr_order',
             restaurant_id: <?php echo intval($res_id); ?>,
             table_id: <?php echo intval($current_table->id); ?>,
+            order_type: 'dine_in',
+            order_source: 'qr',
+            customer_name: custName,
+            customer_phone: custPhone,
             items: JSON.stringify(processedCart),
             subtotal: sub,
             tax_amount: vatVal,

@@ -68,12 +68,22 @@ if ( isset($_POST['save_staff']) ) {
         $user = new WP_User( $sid );
         $user->set_role( $staff_role );
 
-        $wpdb->replace($staff_table, [
-            'user_id'       => $sid,
+        // Update the existing staff row. Never add a new row for the same user,
+        // and remove any extra rows that an earlier edit created.
+        $staff_fields = [
             'restaurant_id' => $restaurant_id,
             'staff_role'    => $staff_role,
-            'status'        => $status
-        ], ['%d', '%d', '%s', '%s']);
+            'status'        => $status,
+        ];
+        $staff_rows = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM $staff_table WHERE user_id = %d ORDER BY id DESC", $sid ) );
+        if ( ! empty( $staff_rows ) ) {
+            $wpdb->update( $staff_table, $staff_fields, [ 'id' => intval( $staff_rows[0] ) ], [ '%d', '%s', '%s' ], [ '%d' ] );
+            if ( count( $staff_rows ) > 1 ) {
+                $wpdb->query( $wpdb->prepare( "DELETE FROM $staff_table WHERE user_id = %d AND id <> %d", $sid, intval( $staff_rows[0] ) ) );
+            }
+        } else {
+            $wpdb->insert( $staff_table, array_merge( [ 'user_id' => $sid, 'assigned_by' => get_current_user_id() ], $staff_fields ), [ '%d', '%d', '%d', '%s', '%s' ] );
+        }
 
         echo "<div class='qrrs-toast success'>Staff updated successfully!</div>";
         echo "<script>setTimeout(function(){ window.location.href='?tab=add-staff'; }, 2000);</script>";
@@ -106,8 +116,9 @@ if ( isset($_POST['save_staff']) ) {
                     'user_id'       => $new_user_id,
                     'restaurant_id' => $restaurant_id,
                     'staff_role'    => $staff_role,
+                    'assigned_by'   => get_current_user_id(),
                     'status'        => $status
-                ], ['%d', '%d', '%s', '%s']);
+                ], ['%d', '%d', '%s', '%d', '%s']);
 
                 if($db_inserted !== false) {
                     echo "<div class='qrrs-toast success'>Staff created successfully!</div>";
@@ -175,33 +186,50 @@ $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $r
                 </div>
             </div>
 
-            <div class="form-row" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:15px; margin-bottom:20px;">
-                <div class="form-col">
-                    <label>Staff Photo</label>
+            <div class="form-row" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:20px; margin-bottom:20px; align-items:center;">
+                <!-- Staff Photo (Circular Upload) -->
+                <div class="form-col" style="text-align:center;">
+                    <label style="display:block; margin-bottom:8px; font-weight:600;">Staff Photo</label>
                     <?php $photo = $edit_mode ? get_user_meta($staff_data->ID, 'staff_photo', true) : ''; ?>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <img id="staff_photo_preview" src="<?php echo $photo ? $photo : 'https://via.placeholder.com/50'; ?>" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid #ddd;">
-                        <input type="hidden" name="staff_photo" id="staff_photo_url" value="<?php echo $photo; ?>">
-                        <button type="button" class="upload-media-btn button" data-preview="#staff_photo_preview" data-input="#staff_photo_url"><span class="material-icons-outlined">add_photo_alternate</span> Upload</button>
+                    <div class="upload-media-btn" data-preview="#staff_photo_preview" data-input="#staff_photo_url" style="display:inline-block; position:relative; cursor:pointer;" title="Click to upload photo">
+                        <img id="staff_photo_preview" src="<?php echo $photo ? $photo : 'https://via.placeholder.com/90?text=Upload'; ?>" style="width:85px; height:85px; border-radius:50%; object-fit:cover; border:2px dashed #cbd5e1; padding:3px; background:#f8fafc; transition:all 0.3s ease;">
+                        <!-- <div style="position:absolute; bottom:0; right:0; background:#2563eb; color:#fff; border-radius:50%; width:28px; height:28px; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,0.2);">
+                            <span class="material-icons-outlined" style="font-size:16px;">camera_alt</span>
+                        </div> -->
                     </div>
+                    <input type="hidden" name="staff_photo" id="staff_photo_url" value="<?php echo $photo; ?>">
                 </div>
-                <div class="form-col">
-                    <label>NID Front</label>
+
+                <!-- NID Front -->
+                <div class="form-col" style="text-align:center;">
+                    <label style="display:block; margin-bottom:8px; font-weight:600;">NID Front</label>
                     <?php $nid_f = $edit_mode ? get_user_meta($staff_data->ID, 'staff_nid_front', true) : ''; ?>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <input type="hidden" name="nid_front" id="nid_front_url" value="<?php echo $nid_f; ?>">
-                        <button type="button" class="upload-media-btn button" data-input="#nid_front_url"><span class="material-icons-outlined">add_photo_alternate</span> Upload Front</button>
-                        <span id="nid_front_status" style="font-size:11px; color:green;"><?php echo $nid_f ? '✅ Loaded' : ''; ?></span>
+                    <div class="upload-media-btn" data-preview="#nid_front_preview" data-input="#nid_front_url" style="display:inline-block; position:relative; cursor:pointer;" title="Click to upload NID front">
+                        <div id="nid_front_container" style="width:140px; height:85px; border:2px dashed #cbd5e1; border-radius:8px; background:#f8fafc; display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative;">
+                            <img id="nid_front_preview" src="<?php echo $nid_f ? $nid_f : ''; ?>" style="width:100%; height:100%; object-fit:cover; <?php echo $nid_f ? '' : 'display:none;'; ?>">
+                            <div id="nid_front_placeholder" style="<?php echo $nid_f ? 'display:none;' : 'display:flex;'; ?> flex-direction:column; align-items:center; color:#64748b;">
+                                <span class="material-icons-outlined" style="font-size:24px;">badge</span>
+                                <span style="font-size:11px; margin-top:2px;">Upload Front</span>
+                            </div>
+                        </div>
                     </div>
+                    <input type="hidden" name="nid_front" id="nid_front_url" value="<?php echo $nid_f; ?>">
                 </div>
-                <div class="form-col">
-                    <label>NID Back</label>
+
+                <!-- NID Back -->
+                <div class="form-col" style="text-align:center;">
+                    <label style="display:block; margin-bottom:8px; font-weight:600;">NID Back</label>
                     <?php $nid_b = $edit_mode ? get_user_meta($staff_data->ID, 'staff_nid_back', true) : ''; ?>
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <input type="hidden" name="nid_back" id="nid_back_url" value="<?php echo $nid_b; ?>">
-                        <button type="button" class="upload-media-btn button" data-input="#nid_back_url"><span class="material-icons-outlined">add_photo_alternate</span> Upload Back</button>
-                        <span id="nid_back_status" style="font-size:11px; color:green;"><?php echo $nid_b ? '✅ Loaded' : ''; ?></span>
+                    <div class="upload-media-btn" data-preview="#nid_back_preview" data-input="#nid_back_url" style="display:inline-block; position:relative; cursor:pointer;" title="Click to upload NID back">
+                        <div id="nid_back_container" style="width:140px; height:85px; border:2px dashed #cbd5e1; border-radius:8px; background:#f8fafc; display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative;">
+                            <img id="nid_back_preview" src="<?php echo $nid_b ? $nid_b : ''; ?>" style="width:100%; height:100%; object-fit:cover; <?php echo $nid_b ? '' : 'display:none;'; ?>">
+                            <div id="nid_back_placeholder" style="<?php echo $nid_b ? 'display:none;' : 'display:flex;'; ?> flex-direction:column; align-items:center; color:#64748b;">
+                                <span class="material-icons-outlined" style="font-size:24px;">badge</span>
+                                <span style="font-size:11px; margin-top:2px;">Upload Back</span>
+                            </div>
+                        </div>
                     </div>
+                    <input type="hidden" name="nid_back" id="nid_back_url" value="<?php echo $nid_b; ?>">
                 </div>
             </div>
 
@@ -290,8 +318,13 @@ jQuery(document).ready(function($){
         }).on('select', function() {
             var attachment = uploader.state().get('selection').first().toJSON();
             $(targetInput).val(attachment.url);
-            if(targetPreview) $(targetPreview).attr('src', attachment.url);
-            else button.next('span').text('✅ Uploaded');
+            
+            if(targetPreview.includes('nid')) {
+                $(targetPreview).attr('src', attachment.url).show();
+                $(targetPreview).siblings('div').hide();
+            } else {
+                $(targetPreview).attr('src', attachment.url);
+            }
         }).open();
     });
 });

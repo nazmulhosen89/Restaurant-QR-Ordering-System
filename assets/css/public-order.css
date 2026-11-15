@@ -1,0 +1,84 @@
+/* QRRS public online order page — dark, card based, matches the restaurant site */
+.qpo{--bg:#141414;--card:#1f1f1f;--line:#2c2c2c;--text:#f5f5f5;--muted:#9ca3af;--accent:#f97316;--gold:#facc15;--ok:#16a34a;
+  background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;min-height:70vh;margin:-20px 0 0;position:relative;box-sizing:border-box}
+.qpo *,.qpo *::before,.qpo *::after{box-sizing:border-box}
+.qpo button{font-family:inherit}
+.qpo-hero{background:linear-gradient(180deg,rgba(0,0,0,.35),rgba(20,20,20,.95)),radial-gradient(circle at 20% 0%,#3a2410,#141414 60%);padding:56px 20px 44px;text-align:center}
+.qpo-eyebrow{color:var(--gold);letter-spacing:.2em;text-transform:uppercase;font-size:12px;font-weight:700}
+.qpo-hero h1{font-size:clamp(28px,5vw,44px);margin:8px 0 12px;font-weight:800;letter-spacing:-.01em}
+.qpo-status{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;font-size:13px;font-weight:700}
+.qpo-status.open{background:rgba(22,163,74,.15);color:#4ade80}
+.qpo-status.closed{background:rgba(239,68,68,.15);color:#f87171}
+.qpo-status small{font-weight:500;color:var(--muted)}
+.qpo-wrap{max-width:1100px;margin:0 auto;padding:24px 16px 120px}
+.qpo-bar{position:sticky;top:0;z-index:20;background:var(--bg);padding:8px 0 14px;margin:0 -16px;padding-left:16px;padding-right:16px}
+.qpo-services{display:flex;gap:8px;margin-bottom:12px}
+.qpo-services button{flex:1;max-width:220px;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-weight:700;cursor:pointer;transition:.2s}
+.qpo-services button.on{border-color:var(--accent);color:var(--accent);background:rgba(249,115,22,.1)}
+.qpo-chips{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.qpo-chips::-webkit-scrollbar{display:none}
+.qpo-chip{flex:0 0 auto;padding:10px 18px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);font-weight:600;cursor:pointer;font-size:14px;transition:.2s;white-space:nowrap}
+.qpo-chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.qpo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+@media(min-width:720px){.qpo-grid{grid-template-columns:repeat(3,1fr);gap:20px}}
+@media(min-width:960px){.qpo-grid{grid-template-columns:repeat(4,1fr)}}
+.qpo-card{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;transition:transform .2s,border-color .2s}
+.qpo-card:hover{transform:translateY(-3px);border-color:#3f3f46}
+.qpo-img{aspect-ratio:4/3;background:linear-gradient(135deg,#2a2a2a,#171717);display:flex;align-items:center;justify-content:center;font-size:42px;overflow:hidden}
+.qpo-img img{width:100%;height:100%;object-fit:cover;display:block}
+.qpo-body{padding:14px 14px 16px;display:flex;flex-direction:column;gap:6px;flex:1}
+.qpo-name{font-weight:700;font-size:15px;line-height:1.3}
+.qpo-desc{color:var(--muted);font-size:12.5px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:34px}
+.qpo-foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:6px}
+.qpo-price{color:var(--accent);font-weight:800;font-size:17px}
+.qpo-add{background:var(--accent);color:#fff;border:none;padding:8px 14px;border-radius:10px;font-weight:700;cursor:pointer;font-size:13px}
+.qpo-add.alt{background:transparent;border:1px solid var(--accent);color:var(--accent)}
+.qpo-stepper{display:inline-flex;align-items:center;gap:8px;background:#2a2a2a;border-radius:10px;padding:4px}
+.qpo-stepper button{width:30px;height:30px;border-radius:8px;border:none;background:#3a3a3a;color:#fff;font-size:17px;font-weight:700;cursor:pointer}
+.qpo-stepper span{min-width:18px;text-align:center;font-weight:700}
+.qpo-empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:40px 0}
+.qpo-cartbar{position:fixed;left:12px;right:12px;bottom:14px;max-width:700px;margin:0 auto;background:var(--accent);color:#fff;border-radius:16px;padding:14px 18px;display:flex;align-items:center;gap:14px;box-shadow:0 12px 30px rgba(249,115,22,.35);z-index:50}
+.qpo-cartbar[hidden]{display:none}
+.qpo-cartbar>div{font-size:14px;opacity:.95}
+.qpo-cartbar strong{font-size:17px}
+.qpo-cartbar button{margin-left:auto;background:#fff;color:var(--accent);border:none;padding:10px 16px;border-radius:10px;font-weight:800;cursor:pointer}
+.qpo-modal{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:flex-end;justify-content:center}
+.qpo-modal[hidden]{display:none}
+@media(min-width:720px){.qpo-modal{align-items:center}}
+.qpo-sheet{background:#181818;color:var(--text);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:24px 24px 0 0;border:1px solid var(--line);animation:qpoUp .28s ease}
+@media(min-width:720px){.qpo-sheet{border-radius:24px;max-height:88vh}}
+@keyframes qpoUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+.qpo-sheet-head{position:sticky;top:0;background:#181818;border-bottom:1px solid var(--line);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;z-index:2}
+.qpo-sheet-head h2{margin:0;font-size:18px}
+.qpo-x{background:#262626;border:none;color:#fff;width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer}
+.qpo-sheet-body{padding:18px 20px 22px}
+.qpo-sec{margin-bottom:18px}
+.qpo-sec h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px}
+.qpo-line{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px dashed #2c2c2c}
+.qpo-line:last-child{border-bottom:none}
+.qpo-line .nm{flex:1;min-width:0}
+.qpo-line .nm b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qpo-line .nm small{color:var(--muted)}
+.qpo-line .amt{font-weight:700;color:var(--accent);min-width:64px;text-align:right}
+.qpo-input{width:100%;background:#101010;border:1px solid #333;color:var(--text);padding:13px 14px;border-radius:12px;font-size:15px;margin-bottom:10px;outline:none}
+.qpo-input:focus{border-color:var(--accent)}
+.qpo-seg{display:flex;gap:8px;margin-bottom:12px}
+.qpo-seg button{flex:1;padding:12px;border-radius:12px;border:1px solid #333;background:#101010;color:var(--muted);font-weight:700;cursor:pointer}
+.qpo-seg button.on{border-color:var(--accent);color:var(--accent);background:rgba(249,115,22,.1)}
+.qpo-totals{background:#101010;border-radius:14px;padding:14px 16px;margin:14px 0}
+.qpo-totals div{display:flex;justify-content:space-between;padding:4px 0;color:var(--muted);font-size:14px}
+.qpo-totals .grand{color:var(--text);font-size:17px;font-weight:800;border-top:1px dashed #333;margin-top:6px;padding-top:10px}
+.qpo-cod{display:flex;gap:10px;align-items:center;background:rgba(22,163,74,.1);color:#4ade80;padding:12px 14px;border-radius:12px;font-size:13px;margin-bottom:14px}
+.qpo-submit{width:100%;background:var(--accent);color:#fff;border:none;padding:16px;border-radius:14px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 10px 24px rgba(249,115,22,.3)}
+.qpo-submit:disabled{opacity:.6;cursor:not-allowed}
+.qpo-err{color:#f87171;font-size:13px;margin-top:10px;min-height:18px}
+.qpo-success{text-align:center;padding:30px 10px}
+.qpo-success .tick{width:72px;height:72px;margin:0 auto 14px;border-radius:50%;background:var(--ok);color:#fff;display:flex;align-items:center;justify-content:center;font-size:36px;animation:qpoPop .4s ease}
+@keyframes qpoPop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+.qpo-success h3{margin:0 0 8px;font-size:20px}
+.qpo-success p{color:var(--muted);margin:0;font-size:14px;line-height:1.5}
+.qpo-ghost{background:transparent;border:none;color:var(--muted);width:100%;padding:12px;margin-top:6px;cursor:pointer;font-weight:600}
+.qpo-opts label{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid #333;border-radius:12px;margin-bottom:8px;cursor:pointer;background:#101010}
+.qpo-opts label:has(input:checked){border-color:var(--accent);background:rgba(249,115,22,.08)}
+.qpo-opts input{accent-color:var(--accent);width:18px;height:18px}
+.qpo-opts .pr{margin-left:auto;color:var(--accent);font-weight:700}

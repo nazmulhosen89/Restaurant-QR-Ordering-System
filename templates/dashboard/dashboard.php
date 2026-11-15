@@ -166,15 +166,26 @@ $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'report
                 <li><a href="?tab=take-order" class="<?php echo $current_tab == 'take-order' ? 'active' : ''; ?>"><i class="fa-solid fa-utensils"></i> Take an Order</a></li>
                 <li><a href="?tab=orders" class="<?php echo $current_tab == 'orders' ? 'active' : ''; ?>"><i class="fa-solid fa-receipt"></i> Order Management</a></li>
                 <li><a href="?tab=tables" class="<?php echo $current_tab == 'tables' ? 'active' : ''; ?>"><i class="fa-solid fa-chair"></i> Table Management</a></li>
-                <li><a href="?tab=billing" class="<?php echo $current_tab == 'billing' ? 'active' : ''; ?>"><i class="fa-solid fa-cash-register"></i> Billing & POS</a></li>
+                <?php if ( qrrs_inventory_can_manage() && qrrs_room_service_enabled( qrrs_inventory_get_active_restaurant_id() ) ) : ?>
+                    <li><a href="?tab=rooms" class="<?php echo $current_tab == 'rooms' ? 'active' : ''; ?>"><i class="fa-solid fa-bed"></i> Rooms Management</a></li>
+                <?php endif; ?>
+                <li><a href="?tab=billing" class="<?php echo $current_tab == 'billing' ? 'active' : ''; ?>"><i class="fa-solid fa-cash-register"></i> Billing &amp; POS</a></li>
                 <li><a href="?tab=reports" class="<?php echo $current_tab == 'reports' ? 'active' : ''; ?>"><i class="fa-solid fa-chart-line"></i> Reports</a></li>
                 <li><a href="?tab=categories" class="<?php echo $current_tab == 'categories' ? 'active' : ''; ?>"><i class="fa-solid fa-folder-tree"></i> Categories</a></li>
                 <li><a href="?tab=items" class="<?php echo $current_tab == 'items' ? 'active' : ''; ?>"><i class="fa-solid fa-bowl-food"></i> Items</a></li>
                 <li><a href="?tab=inventory" class="<?php echo $current_tab == 'inventory' ? 'active' : ''; ?>"><i class="fa-solid fa-boxes-stacked"></i> Inventory</a></li>
+                <?php if ( qrrs_inventory_can_manage() ) : ?>
+                    <li><a href="?tab=crm" class="<?php echo $current_tab == 'crm' ? 'active' : ''; ?>"><i class="fa-solid fa-address-book"></i> CRM</a></li>
+                <?php endif; ?>
                 
+                <!-- 📌 আলাদা করা Admin Section (HTML-এ লেবেলসহ) -->
                 <?php if ( current_user_can( 'administrator' ) ) : ?>
+                    <li class="admin-section-divider">
+                        <span class="admin-section-title">ADMINISTRATION</span>
+                    </li>
                     <li class="admin-menu-item"><a href="?tab=restaurants" class="<?php echo $current_tab == 'restaurants' ? 'active' : ''; ?>"><i class="fa-solid fa-shop"></i> Manage Restaurants</a></li>
                     <li class="admin-menu-item"><a href="?tab=add-staff" class="<?php echo $current_tab == 'add-staff' ? 'active' : ''; ?>"><i class="fa-solid fa-user-plus"></i> Create Staff</a></li>
+                    <li class="admin-menu-item"><a href="?tab=online-settings" class="<?php echo $current_tab == 'online-settings' ? 'active' : ''; ?>"><i class="fa-solid fa-globe"></i> Online &amp; Delivery</a></li>
                     <li class="admin-menu-item"><a href="?tab=license" class="<?php echo $current_tab == 'license' ? 'active' : ''; ?>"><i class="fa-solid fa-key"></i> License</a></li>
                 <?php endif; ?>
             </ul>
@@ -216,6 +227,13 @@ $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'report
                         QRRS_Auth::is_admin_only();
                         include QRRS_PATH . 'includes/restaurant/add-staff.php';
                         break;
+                    case 'rooms':
+                        if ( qrrs_room_service_enabled( qrrs_inventory_get_active_restaurant_id() ) ) {
+                            qrrs_rooms_page( qrrs_inventory_get_active_restaurant_id(), qrrs_inventory_can_manage() );
+                        } else {
+                            echo "<div style='padding:40px; text-align:center;'><h3>Room service is off for this restaurant.</h3><p>Turn it on in Online &amp; Delivery to manage rooms.</p></div>";
+                        }
+                        break;
                     case 'tables':
                         include QRRS_PATH . 'includes/restaurant/tables.php';
                         break;
@@ -246,6 +264,14 @@ $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'report
                         } else {
                             qrrs_render_upgrade_notice( 'Inventory Management' );
                         }
+                        break;
+                    case 'online-settings':
+                        QRRS_Auth::is_admin_only();
+                        require_once QRRS_PATH . 'includes/restaurant/online-settings.php';
+                        qrrs_online_render( qrrs_inventory_get_active_restaurant_id(), current_user_can( 'administrator' ) );
+                        break;
+                    case 'crm':
+                        qrrs_crm_render( qrrs_inventory_get_active_restaurant_id(), qrrs_inventory_is_admin(), qrrs_inventory_can_manage() );
                         break;
                     case 'license':
                         QRRS_Auth::is_admin_only();

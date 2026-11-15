@@ -89,7 +89,7 @@ $billing_stats = $wpdb->get_row($wpdb->prepare("
         COUNT(id) as total_orders,
         SUM(CASE WHEN order_status IN ('pending', 'processing') THEN 1 ELSE 0 END) as pending_orders,
         SUM(CASE WHEN order_status = 'completed' THEN COALESCE(final_total, grand_total) ELSE 0 END) as total_collection,
-        SUM(CASE WHEN order_status IN ('ready', 'settle_bill', 'served', 'billing') THEN grand_total ELSE 0 END) as pending_collection,
+        SUM(CASE WHEN order_status IN ('ready', 'settle_bill', 'served', 'billing', 'out_for_delivery', 'delivered') THEN grand_total ELSE 0 END) as pending_collection,
         AVG(CASE WHEN order_status = 'completed' THEN COALESCE(final_total, grand_total) END) as avg_order
     FROM $orders_table 
     WHERE restaurant_id = %d AND DATE(created_at) = %s", $active_res_id, $today));
@@ -98,9 +98,9 @@ $settle_orders = $wpdb->get_results($wpdb->prepare(
     "SELECT id, table_name, grand_total, created_at, order_status 
     FROM $orders_table 
     WHERE restaurant_id = %d 
-    AND order_status IN ('ready', 'settle_bill', 'served', 'billing') 
+    AND order_status IN ('ready', 'settle_bill', 'served', 'billing', 'out_for_delivery', 'delivered') 
     AND DATE(created_at) = %s 
-    ORDER BY FIELD(order_status, 'billing', 'settle_bill', 'ready', 'served'), id DESC",
+    ORDER BY FIELD(order_status, 'billing', 'settle_bill', 'delivered', 'out_for_delivery', 'ready', 'served'), id DESC",
     $active_res_id, $today
 ));
 
@@ -615,4 +615,3 @@ function showToastPopup(message) {
     }, 3000);
 }
 </script>
-

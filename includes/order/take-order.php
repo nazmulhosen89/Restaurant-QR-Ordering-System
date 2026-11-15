@@ -26,6 +26,7 @@ $res_info = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qrrs_res
 $db_tax = $res_info->tax_percent ?? 0;
 $db_sc  = $res_info->service_charge_percent ?? 0;
 
+// 📌 এখানে t.status != 'inactive' বাদ দেওয়া হয়েছে যাতে ইনঅ্যাক্টিভ টেবিলগুলোও লিস্টে দেখায়
 $tables = $wpdb->get_results($wpdb->prepare("
     SELECT t.*, 
         o.order_status, 
@@ -43,8 +44,20 @@ $tables = $wpdb->get_results($wpdb->prepare("
     ORDER BY CAST(SUBSTRING_INDEX(t.table_name,' ',-1) AS UNSIGNED) ASC, t.table_name ASC
 ", $restaurant_id, $restaurant_id));
 
-$categories = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qrrs_categories WHERE restaurant_id = %d ORDER BY id ASC", $restaurant_id));
-$items = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$wpdb->prefix}qrrs_items WHERE restaurant_id = %d", $restaurant_id));
+
+$categories = $wpdb->get_results($wpdb->prepare(
+    "SELECT * FROM {$wpdb->prefix}qrrs_categories WHERE restaurant_id = %d AND (status != 'inactive' OR status IS NULL) ORDER BY id ASC", 
+    $restaurant_id
+));
+
+
+$items = $wpdb->get_results($wpdb->prepare(
+    "SELECT i.* FROM {$wpdb->prefix}qrrs_items i 
+     JOIN {$wpdb->prefix}qrrs_categories c ON i.category_id = c.id 
+     WHERE i.restaurant_id = %d 
+     AND (c.status != 'inactive' OR c.status IS NULL)", 
+    $restaurant_id
+));
 
 $today_start = current_time('Y-m-d 00:00:00');
 $today_end   = current_time('Y-m-d 23:59:59');
@@ -76,8 +89,6 @@ $can_use_delivery = function_exists( 'qrrs_can_use_feature' ) ? qrrs_can_use_fea
 
 ?>
 
-
-
 <div class="pos-wrapper">
     <div id="pos-overlay" class="pos-overlay">
         <div id="step-type" class="selection-card">
@@ -99,6 +110,7 @@ $can_use_delivery = function_exists( 'qrrs_can_use_feature' ) ? qrrs_can_use_fea
                 <div class="table-legend">
                     <div class="legend-dot"><span style="background:#22c55e;"></span> Free</div>
                     <div class="legend-dot"><span style="background:#f97316;"></span> Occupied</div>
+                    <div class="legend-dot"><span style="background:#dc2626;"></span> Not in use</div>
                 </div>
             </div>
 
@@ -106,52 +118,80 @@ $can_use_delivery = function_exists( 'qrrs_can_use_feature' ) ? qrrs_can_use_fea
                 <?php 
                 $free_count = 0;
                 $occupied_count = 0;
+                $inactive_count = 0;
                 foreach($tables as $t): 
-                    $is_occupied = in_array($t->table_name, $occupied_table_names);
+                    $is_inactive = ($t->status === 'inactive');
+                    $is_occupied = (!$is_inactive && in_array($t->table_name, $occupied_table_names));
                     $capacity = !empty($t->capacity) ? intval($t->capacity) : 4;
                     
-                    if($is_occupied) {
+                    if($is_inactive) {
+                        $inactive_count++;
+                        $onclick = "showInactiveAlert('" . esc_js($t->table_name) . "')";
+                    } elseif($is_occupied) {
                         $occupied_count++;
                         $odata = $occupied_map[$t->table_name] ?? null;
                         $taken_by = $odata ? ($odata->taken_by ?: 'Staff') : 'Customer';
                         $item_count = $odata ? intval($odata->item_count) : 0;
-                        $time_ago = $odata ? human_time_diff(strtotime($odata->created_at), current_time('timestamp')) . ' ago' : '';
+                        
+                        if ( $odata ) {
+                            $order_timestamp = strtotime($odata->created_at);
+                            $time_ago        = human_time_diff($order_timestamp, current_time('timestamp')) . ' ago';
+                            $placement_time  = wp_date('h:i A', $order_timestamp);
+                        } else {
+                            $time_ago        = '';
+                            $placement_time  = '';
+                        }
+
                         $grand_total = $odata ? number_format($odata->grand_total, 0) : '0';
-                        $onclick = "showOccupiedAlert('" . esc_js($t->table_name) . "', '" . esc_js($taken_by) . "', '{$item_count}', '{$time_ago}')";
+                        $onclick = "showOccupiedAlert('" . esc_js($t->table_name) . "', '" . esc_js($taken_by) . "', '{$item_count}', '{$time_ago}', '{$placement_time}')";
                     } else {
                         $free_count++;
                         $onclick = "selectTable({$t->id}, '" . esc_js($t->table_name) . "')";
                     }
 
-                    $chair_icons = '';
-                    for($i = 0; $i < min($capacity, 6); $i++) $chair_icons .= '🪑';
+                    // কার্ডের স্টাইল ক্লাস নির্ধারণ
+                    $card_class = 'free';
+                    if($is_inactive) {
+                        $card_class = 'inactive-table-card';
+                    } elseif($is_occupied) {
+                        $card_class = 'occupied';
+                    }
                 ?>
-                <div class="tbl-card <?php echo $is_occupied ? 'occupied' : 'free'; ?>" 
+                <div class="tbl-card <?php echo $card_class; ?>" 
                     onclick="<?php echo $onclick; ?>">
                     
-                    <?php if($is_occupied): ?>
+                    <?php if($is_inactive): ?>
+                    <div class="tbl-tooltip">
+                        🚫 Not in use (Inactive)
+                    </div>
+                    <?php elseif($is_occupied): ?>
                     <div class="tbl-tooltip">
                         👤 <?php echo esc_html($taken_by); ?> · <?php echo $item_count; ?> items · <?php echo $time_ago; ?>
                     </div>
                     <?php endif; ?>
 
                     <span class="tbl-icon">
-                        <img src="<?php echo $is_occupied 
-                            ? esc_url($plugin_url . 'assets/images/table-occupied.png')
-                            : esc_url($plugin_url . 'assets/images/table-free.png'); ?>" 
-                            style="width:auto; height:45px; object-fit:contain;">
+                        <img src="<?php echo $is_inactive 
+                            ? esc_url($plugin_url . 'assets/images/table-free.png') 
+                            : ($is_occupied 
+                                ? esc_url($plugin_url . 'assets/images/table-occupied.png')
+                                : esc_url($plugin_url . 'assets/images/table-free.png')); ?>" 
+                            style="width:auto; height:45px; object-fit:contain; <?php echo $is_inactive ? 'filter: grayscale(100%); opacity: 0.5;' : ''; ?>">
                     </span>
-                    <div class="tbl-name"><?php echo esc_html($t->table_name); ?></div>
+                    <div class="tbl-name" <?php echo $is_inactive ? 'style="text-decoration: line-through; color: #dc2626;"' : ''; ?>><?php echo esc_html($t->table_name); ?></div>
                     <div class="tbl-capacity">👥 <?php echo $capacity; ?> seats</div>
-                    <div class="tbl-status-pill">
-                        <?php echo $is_occupied ? '● Occupied' : '● Free'; ?>
+                    <div class="tbl-status-pill" style="<?php echo $is_inactive ? 'background: #fee2e2; color: #dc2626;' : ''; ?>">
+                        <?php echo $is_inactive ? '● Not in use' : ($is_occupied ? '● Occupied' : '● Free'); ?>
                     </div>
                     <?php if($is_occupied): ?>
                     <div class="tbl-waiter-info">
-                        <!-- <div class="tbl-waiter-avatar"><?php echo strtoupper(substr($taken_by, 0, 1)); ?></div> -->
                         <div class="tbl-waiter-name"> <?php echo esc_html($taken_by); ?></div>
                     </div>
                     <div class="tbl-order-meta"><?php echo $item_count; ?> items · <?php echo $time_ago; ?></div>
+                    <?php elseif($is_inactive): ?>
+                    <div class="tbl-waiter-info">
+                        <div class="tbl-waiter-name" style="color: #dc2626; font-size: 11px; font-weight: bold;">Inactive</div>
+                    </div>
                     <?php endif; ?>
                 </div>
                 <?php endforeach; ?>
@@ -160,7 +200,8 @@ $can_use_delivery = function_exists( 'qrrs_can_use_feature' ) ? qrrs_can_use_fea
             <div class="table-modal-footer">
                 <div class="table-stats-text">
                     <strong><?php echo $free_count; ?></strong> free · 
-                    <strong><?php echo $occupied_count; ?></strong> occupied
+                    <strong><?php echo $occupied_count; ?></strong> occupied · 
+                    <strong style="color: #dc2626;"><?php echo $inactive_count; ?></strong> not in use
                 </div>
                 <button onclick="jQuery('#step-table').hide(); jQuery('#step-type').show();" 
                         style="background:none; border:1px solid #e2e8f0; padding:8px 16px; border-radius:8px; color:#64748b; cursor:pointer; font-size:13px; font-weight:600;">
@@ -173,7 +214,6 @@ $can_use_delivery = function_exists( 'qrrs_can_use_feature' ) ? qrrs_can_use_fea
     <div class="sidebar-left">
         <div class="cat-item active" data-cat="all">🏠<h4>ALL</h4></div>
         <?php foreach($categories as $cat): 
-        
             $c_img = !empty($cat->image_url) ? $cat->image_url : (!empty($cat->image) ? $cat->image : '');
         ?>
             <div class="cat-item" data-cat="<?php echo $cat->id; ?>">
@@ -190,7 +230,6 @@ $can_use_delivery = function_exists( 'qrrs_can_use_feature' ) ? qrrs_can_use_fea
     <div class="main-content">
         <div class="item-grid">
             <?php foreach($items as $item): 
-            
                 $i_img = !empty($item->image_url) ? $item->image_url : (!empty($item->item_image) ? $item->item_image : '');
                 $item_json = json_encode($item);
                 $is_avail = isset($item->is_available) ? intval($item->is_available) : 1;
@@ -201,7 +240,6 @@ $can_use_delivery = function_exists( 'qrrs_can_use_feature' ) ? qrrs_can_use_fea
                 onclick='<?php echo ($is_avail === 1) ? "prepareItem($item_json)" : ""; ?>'>
                 
                 <div class="item-qty-badge" id="badge-<?php echo $item->id; ?>">0</div>
-                
                 <img src="<?php echo esc_url($i_img); ?>" class="item-img" onerror="this.src='https://via.placeholder.com/300x150?text=Food'">
                 
                 <div style="padding:12px;">
@@ -229,7 +267,6 @@ $can_use_delivery = function_exists( 'qrrs_can_use_feature' ) ? qrrs_can_use_fea
     <div class="v-modal-content" id="vBody"></div>
 </div>
 
-
 <div id="successPopup" class="v-modal" style="display:none; z-index: 9999;">
     <div class="v-modal-content" style="text-align:center; padding: 30px; border-radius: 15px; max-width: 350px;">
         <div class="success-icon" style="margin-bottom: 15px;">
@@ -246,19 +283,7 @@ $can_use_delivery = function_exists( 'qrrs_can_use_feature' ) ? qrrs_can_use_fea
     </div>
 </div>
 
-<style>
-#successPopup {
-    background: rgba(0, 0, 0, 0.5) !important;
-    backdrop-filter: blur(2px);
-}
-.success-icon {
-    animation: popIn 0.4s ease-out;
-}
-@keyframes popIn {
-    0% { transform: scale(0.5); opacity: 0; }
-    100% { transform: scale(1); opacity: 1; }
-}
-</style>
+
 
 <script>
 const TAX_RATE = <?php echo floatval($db_tax); ?>;
@@ -269,11 +294,22 @@ const CAN_DELIVERY = <?php echo $can_use_delivery ? 'true' : 'false'; ?>;
 
 let cart = [];
 let orderMeta = { type: '', table_id: 0, table_name: '' };
+let deliveryCustomer = null;
 
+function escapeDeliveryField(value) {
+    return String(value || '').replace(/[&<>"']/g, function(character) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character];
+    });
+}
 
 function selectType(t) { 
     if(t === 'delivery' && !CAN_DELIVERY) {
         alert('Delivery orders are available in Pro only.');
+        return;
+    }
+
+    if (t === 'delivery') {
+        openDeliveryCustomerForm();
         return;
     }
 
@@ -291,49 +327,185 @@ function finalizeSelection() {
     jQuery('#order-meta-label').text(orderMeta.table_name); 
 }
 
-
-function prepareItem(item) {
-    let rawVar = item.variants || item.variants_json || "";
-    let variants = [];
-    try {
-        if (typeof rawVar === 'string' && rawVar.trim() !== "" && rawVar !== "[]") variants = JSON.parse(rawVar);
-        else if (Array.isArray(rawVar)) variants = rawVar;
-    } catch(e) { variants = []; }
-
-    if(variants.length > 0) {
-        let html = `<h3>${item.item_name}</h3><p style="color:#64748b; font-size:14px;">Customize order:</p>`;
-        variants.forEach(v => {
-            html += `
-            <label style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:10px; cursor:pointer;">
-                <input type="checkbox" class="v_opt_cb" value="${v}" style="width:20px; height:20px; accent-color:var(--primary);">
-                <span style="font-weight:500;">${v}</span>
-            </label>`;
-        });
-        html += `<button onclick='confirmAdd(${JSON.stringify(item)})' class="btn-place-order">Add to Order</button>`;
-        html += `<button onclick="closeM()" style="width:100%; background:none; border:none; margin-top:10px; color:#94a3b8; cursor:pointer;">Cancel</button>`;
-        document.getElementById('vBody').innerHTML = html;
-        document.getElementById('vModal').style.display = 'flex';
-    } else {
-        addToCart(item, []);
-    }
+function openDeliveryCustomerForm() {
+    document.getElementById('vBody').innerHTML = `
+        <div style="padding:4px;">
+            <h3 style="margin:0 0 8px; color:#1e293b;">Delivery Customer Details</h3>
+            <p style="margin:0 0 16px; color:#64748b; font-size:13px;">Complete these details before creating the delivery order.</p>
+            <label style="display:block; font-size:13px; font-weight:700; margin:10px 0 5px;">Customer Name *</label>
+            <input id="delivery-customer-name" type="text" value="${escapeDeliveryField(deliveryCustomer ? deliveryCustomer.name : '')}" style="width:100%; box-sizing:border-box; padding:11px; border:1px solid #cbd5e1; border-radius:7px;">
+            <label style="display:block; font-size:13px; font-weight:700; margin:10px 0 5px;">Phone Number *</label>
+            <input id="delivery-customer-phone" type="tel" value="${escapeDeliveryField(deliveryCustomer ? deliveryCustomer.phone : '')}" style="width:100%; box-sizing:border-box; padding:11px; border:1px solid #cbd5e1; border-radius:7px;">
+            <label style="display:block; font-size:13px; font-weight:700; margin:10px 0 5px;">Delivery Address *</label>
+            <textarea id="delivery-customer-address" rows="3" style="width:100%; box-sizing:border-box; padding:11px; border:1px solid #cbd5e1; border-radius:7px; resize:vertical;">${escapeDeliveryField(deliveryCustomer ? deliveryCustomer.address : '')}</textarea>
+            <label style="display:block; font-size:13px; font-weight:700; margin:10px 0 5px;">Delivery Note</label>
+            <textarea id="delivery-customer-note" rows="2" style="width:100%; box-sizing:border-box; padding:11px; border:1px solid #cbd5e1; border-radius:7px; resize:vertical;">${escapeDeliveryField(deliveryCustomer ? deliveryCustomer.note : '')}</textarea>
+            <button onclick="confirmDeliveryCustomer()" class="btn-place-order" style="margin-top:15px; width:100%;">Continue to Order</button>
+            <button onclick="closeM()" style="width:100%; background:none; border:none; margin-top:10px; color:#64748b; cursor:pointer;">Cancel</button>
+        </div>`;
+    document.getElementById('vModal').style.display = 'flex';
 }
 
-function confirmAdd(item) {
-    let selected = [];
-    document.querySelectorAll('.v_opt_cb:checked').forEach(cb => selected.push(cb.value));
-    addToCart(item, selected);
+function confirmDeliveryCustomer() {
+    const name = document.getElementById('delivery-customer-name').value.trim();
+    const phone = document.getElementById('delivery-customer-phone').value.trim();
+    const address = document.getElementById('delivery-customer-address').value.trim();
+    const note = document.getElementById('delivery-customer-note').value.trim();
+
+    if (!name || !phone || !address) {
+        alert('Customer name, phone number, and delivery address are required.');
+        return;
+    }
+
+    deliveryCustomer = { name, phone, address, note };
+    orderMeta.type = 'delivery';
+    orderMeta.table_id = 0;
+    orderMeta.table_name = 'Delivery';
+    closeM();
+    finalizeSelection();
+}
+
+let pendingItem = null;
+let optionCache = {};
+
+function escapeHtml(t) {
+    return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function parseLegacyAddons(item) {
+    let rawVar = item.variants || item.variants_json || "";
+    let list = [];
+    try {
+        if (typeof rawVar === 'string' && rawVar.trim() !== "" && rawVar !== "[]") list = JSON.parse(rawVar);
+        else if (Array.isArray(rawVar)) list = rawVar;
+    } catch(e) { list = []; }
+    return Array.isArray(list) ? list : [];
+}
+
+function fetchItemOptions(itemId) {
+    if (optionCache[itemId]) return Promise.resolve(optionCache[itemId]);
+    const body = new URLSearchParams({ action: 'qrrs_get_item_options', restaurant_id: <?php echo intval($restaurant_id); ?>, item_id: itemId });
+    return fetch(AJAX_URL, { method: 'POST', body: body })
+        .then(r => r.json())
+        .then(j => {
+            const groups = (j && j.success && j.data && j.data.groups) ? j.data.groups : [];
+            optionCache[itemId] = groups;
+            return groups;
+        })
+        .catch(() => []);
+}
+
+function prepareItem(item) {
+    pendingItem = item;
+    const legacy = parseLegacyAddons(item);
+    fetchItemOptions(item.id).then(groups => {
+        if (groups.length === 0 && legacy.length === 0) {
+            addToCart(item, [], [], [], parseFloat(item.price));
+            return;
+        }
+        renderOptionModal(item, groups, legacy);
+    });
+}
+
+function renderOptionModal(item, groups, legacy) {
+    let html = `<h3>${escapeHtml(item.item_name)}</h3><p style="color:#64748b; font-size:14px;">Customize order:</p>`;
+
+    groups.forEach(g => {
+        html += `<p style="font-weight:700; margin:14px 0 6px;">${escapeHtml(g.name)}${g.type === 'size' && g.required ? ' <span style="color:#dc2626;">*</span>' : ''}</p>`;
+        if (g.type === 'size') {
+            if (!g.required) {
+                html += `<label style="display:flex; align-items:center; gap:12px; padding:10px; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:8px; cursor:pointer;">
+                    <input type="radio" name="size_g_${g.id}" value="0" checked data-price="0" data-name="">
+                    <span style="font-weight:500;">None</span></label>`;
+            }
+            g.values.forEach(v => {
+                html += `<label style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:8px; cursor:pointer;">
+                    <input type="radio" name="size_g_${g.id}" class="v_size_rb" value="${v.id}" data-price="${v.price}" data-name="${escapeHtml(v.name)}">
+                    <span style="font-weight:500;">${escapeHtml(v.name)}</span>
+                    <span style="margin-left:auto; font-weight:700;">${Number(v.price).toFixed(2)}৳</span></label>`;
+            });
+        } else {
+            g.values.forEach(v => {
+                html += `<label style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:10px; cursor:pointer;">
+                    <input type="checkbox" class="v_opt_cb" value="${escapeHtml(v.name)}" data-price="${v.price}" data-name="${escapeHtml(v.name)}" style="width:20px; height:20px; accent-color:var(--primary);">
+                    <span style="font-weight:500;">${escapeHtml(v.name)}</span>
+                    <span style="margin-left:auto; color:#64748b;">+${Number(v.price).toFixed(2)}৳</span></label>`;
+            });
+        }
+    });
+
+    if (legacy.length) {
+        html += `<p style="font-weight:700; margin:14px 0 6px;">Extras</p>`;
+        legacy.forEach(v => {
+            html += `<label style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:10px; cursor:pointer;">
+                <input type="checkbox" class="v_opt_cb" value="${escapeHtml(v)}" data-price="0" data-name="${escapeHtml(v)}" style="width:20px; height:20px; accent-color:var(--primary);">
+                <span style="font-weight:500;">${escapeHtml(v)}</span></label>`;
+        });
+    }
+
+    html += `<p id="vTotal" style="font-weight:700; text-align:right; margin:12px 0;"></p>`;
+    html += `<button onclick="confirmAddPending()" class="btn-place-order">Add to Order</button>`;
+    html += `<button onclick="closeM()" style="width:100%; background:none; border:none; margin-top:10px; color:#94a3b8; cursor:pointer;">Cancel</button>`;
+
+    document.getElementById('vBody').innerHTML = html;
+    document.getElementById('vModal').style.display = 'flex';
+    document.querySelectorAll('#vBody input').forEach(el => el.addEventListener('change', updatePendingTotal));
+    updatePendingTotal();
+}
+
+function pendingSelection() {
+    const hasRequiredSize = document.querySelectorAll('.v_size_rb').length > 0 && pendingRequiredSizeCount() > 0;
+    let price = hasRequiredSize ? 0 : parseFloat(pendingItem.price);
+    let sizeIds = [], sizeNames = [], addons = [];
+
+    document.querySelectorAll('input[type="radio"]:checked').forEach(rb => {
+        if (rb.value === '0') return;
+        sizeIds.push(rb.value);
+        sizeNames.push(rb.dataset.name);
+        price += parseFloat(rb.dataset.price || 0);
+    });
+    document.querySelectorAll('.v_opt_cb:checked').forEach(cb => {
+        addons.push(cb.dataset.name);
+        price += parseFloat(cb.dataset.price || 0);
+    });
+    return { sizeIds, sizeNames, addons, price };
+}
+
+function pendingRequiredSizeCount() {
+    return (optionCache[pendingItem.id] || []).filter(g => g.type === 'size' && g.required).length;
+}
+
+function updatePendingTotal() {
+    const sel = pendingSelection();
+    const el = document.getElementById('vTotal');
+    if (el) el.textContent = 'Total: ' + sel.price.toFixed(2) + '৳';
+}
+
+function confirmAddPending() {
+    const groups = optionCache[pendingItem.id] || [];
+    for (const g of groups) {
+        if (g.type === 'size' && g.required) {
+            const chosen = document.querySelector(`input[name="size_g_${g.id}"]:checked`);
+            if (!chosen) { alert('Please choose: ' + g.name); return; }
+        }
+    }
+    const sel = pendingSelection();
+    addToCart(pendingItem, sel.addons, sel.sizeIds, sel.sizeNames, sel.price);
     closeM();
 }
 
-function addToCart(item, variants) {
-    let key = item.id + variants.join('');
+function addToCart(item, variants, sizeIds = [], sizeNames = [], unitPrice = null) {
+    const price = (unitPrice === null) ? parseFloat(item.price) : unitPrice;
+    const label = sizeNames.join(' + ');
+    const key = item.id + '|' + sizeIds.join(',') + '|' + variants.join(',');
     let exist = cart.find(x => x.key === key);
-    if(exist) { exist.qty++; } 
+    if (exist) { exist.qty++; }
     else {
-        cart.push({ 
-            key: key, id: item.id, name: item.item_name, 
-            price: parseFloat(item.price), variants: variants, 
-            qty: 1, tax_free: parseInt(item.is_tax_free || 0) 
+        cart.push({
+            key: key, id: item.id,
+            name: item.item_name + (label ? ' (' + label + ')' : ''),
+            price: price, variants: variants, size_ids: sizeIds,
+            qty: 1, tax_free: parseInt(item.is_tax_free || 0)
         });
     }
     render();
@@ -350,7 +522,6 @@ function updateQty(key, delta) {
 
 function render() {
     let html = '', sub = 0, taxable = 0;
-    
     
     document.querySelectorAll('.item-qty-badge').forEach(b => b.style.display = 'none');
     document.querySelectorAll('.item-card').forEach(c => c.classList.remove('selected'));
@@ -384,9 +555,7 @@ function render() {
     document.getElementById('cart-list').innerHTML = cart.length ? html : '<div style="text-align:center; color:#94a3b8; margin-top:50px;">Empty Cart</div>';
 
     if(cart.length > 0) {
-        
         let vat = taxable * (TAX_RATE / 100);       
-        
         let sc = 0;
         let scDisplay = '';
 
@@ -396,9 +565,13 @@ function render() {
                 <div style="display:flex; justify-content:space-between; font-size:14px; color:#64748b; margin-bottom:5px;">
                     <span>S. Charge (${SC_RATE}%)</span><span>${sc.toFixed(2)}৳</span>
                 </div>`;
+        } else if (orderMeta.type === 'delivery') {
+            scDisplay = `
+                <div style="display:flex; justify-content:space-between; font-size:14px; color:#64748b; margin-bottom:5px;">
+                    <span>Delivery Charge</span><span>0.00৳</span>
+                </div>`;
         } else {
-            
-        scDisplay = `
+            scDisplay = `
                 <div style="display:flex; justify-content:space-between; font-size:14px; color:#22c55e; margin-bottom:5px;">
                     <span>S. Charge</span><span>0.00৳ (Take Out)</span>
                 </div>`;
@@ -442,7 +615,8 @@ function placeOrder(grandTotal) {
             name: item.name,
             price: item.price,
             qty: item.qty,
-            variants_selected: item.variants ? item.variants.join(', ') : '' 
+            variants_selected: item.variants ? item.variants.join(', ') : '',
+            size_value_ids: (item.size_ids || []).join(',')
         };
     });
 
@@ -454,6 +628,11 @@ function placeOrder(grandTotal) {
             restaurant_id: <?php echo $restaurant_id; ?>,
             table_id: orderMeta.table_id,
             order_type: orderMeta.type,
+            order_source: 'pos',
+            customer_name: deliveryCustomer ? deliveryCustomer.name : '',
+            customer_phone: deliveryCustomer ? deliveryCustomer.phone : '',
+            delivery_address: deliveryCustomer ? deliveryCustomer.address : '',
+            delivery_note: deliveryCustomer ? deliveryCustomer.note : '',
             items: JSON.stringify(processedCart),
             subtotal: sub,
             tax_amount: vatVal,
@@ -495,8 +674,22 @@ function resetOrderBtn(btn) {
     }
 }
 
+// 📌 ইনঅ্যাক্টিভ টেবিলে ক্লিক করলে পপআপ বা অ্যালার্ট দেখানোর ফাংশন
+function showInactiveAlert(tableName) {
+    document.getElementById('vBody').innerHTML = `
+        <div style="text-align:center; padding:10px 0;">
+            <div style="font-size:48px; margin-bottom:12px;">⚠️</div>
+            <h3 style="margin:0 0 8px; color:#dc2626;">${tableName} is Not in Use</h3>
+            <p style="color:#64748b; margin:0 0 20px; font-size:14px;">This table is currently inactive and cannot accept new orders.</p>
+            <button onclick="closeM()" class="btn-place-order" 
+                    style="margin-top:10px; background:#1e293b;">
+                Got it
+            </button>
+        </div>`;
+    document.getElementById('vModal').style.display = 'flex';
+}
 
-function showOccupiedAlert(tableName, takenBy, itemCount, timeAgo) {
+function showOccupiedAlert(tableName, takenBy, itemCount, timeAgo, placementTime) {
     document.getElementById('vBody').innerHTML = `
         <div style="text-align:center; padding:10px 0;">
             <div style="font-size:48px; margin-bottom:12px;">🔒</div>
@@ -513,7 +706,7 @@ function showOccupiedAlert(tableName, takenBy, itemCount, timeAgo) {
                 </div>
                 <div style="display:flex; justify-content:space-between;">
                     <span style="color:#64748b; font-size:13px;">🕐 Order Time</span>
-                    <span style="font-weight:700; font-size:13px; color:#1e293b;">${timeAgo}</span>
+                    <span style="font-weight:700; font-size:13px; color:#1e293b;">${placementTime} (${timeAgo})</span>
                 </div>
             </div>
             <button onclick="closeM()" class="btn-place-order" 
@@ -537,41 +730,4 @@ document.querySelectorAll('.cat-item[data-cat]').forEach(el => {
         });
     }
 });
-
-
-function selectType(t) { 
-    if(t === 'delivery' && !CAN_DELIVERY) {
-        alert('Delivery orders are available in Pro only.');
-        return;
-    }
-    
-    orderMeta.type = t; 
-    if(t === 'dine_in') { 
-        jQuery('#step-type').hide(); 
-        jQuery('#step-table').show(); 
-    } else { 
-        orderMeta.table_id = 0;
-        orderMeta.table_name = (t === 'delivery') ? 'Delivery' : 'Take Out'; 
-        finalizeSelection(); 
-    }
-}
-
-
-if(orderMeta.type === 'dine_in') {
-    sc = sub * (SC_RATE / 100);
-    scDisplay = `
-        <div style="display:flex; justify-content:space-between; font-size:14px; color:#64748b; margin-bottom:5px;">
-            <span>S. Charge (${SC_RATE}%)</span><span>${sc.toFixed(2)}৳</span>
-        </div>`;
-} else if(orderMeta.type === 'delivery') {
-    scDisplay = `
-        <div style="display:flex; justify-content:space-between; font-size:14px; color:#64748b; margin-bottom:5px;">
-            <span>Delivery Charge</span><span>0.00৳</span>
-        </div>`;
-} else {
-    scDisplay = `
-        <div style="display:flex; justify-content:space-between; font-size:14px; color:#22c55e; margin-bottom:5px;">
-            <span>S. Charge</span><span>0.00৳ (Take Out)</span>
-        </div>`;
-}
 </script>

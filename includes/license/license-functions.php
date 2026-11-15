@@ -190,47 +190,72 @@ function qrrs_render_license_page() {
     $is_pro = qrrs_is_pro();
     $demo_key = qrrs_generate_local_pro_key( wp_get_current_user()->user_email );
     ?>
-    <div class="qrrs-card" style="padding:24px;">
-        <h2 style="margin-top:0;">DineX Restro License</h2>
-        <p style="color:#64748b;">Free is limited but usable. Pro is a one-time lifetime unlock for the full restaurant automation system.</p>
-
-        <div style="display:grid; grid-template-columns:repeat(2,minmax(220px,1fr)); gap:16px; margin:20px 0;">
-            <div style="border:1px solid #e2e8f0; border-radius:10px; padding:18px; background:#fff;">
-                <h3>Free</h3>
-                <ul>
-                    <li>1 restaurant</li>
-                    <li>1 manager, 1 waiter, 1 kitchen user</li>
-                    <li>Sales report only, last 30 days</li>
-                    <li>No inventory, recipe, delivery</li>
-                </ul>
+    <div class="qrrs-card" style="background:#fff; padding:25px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+        
+        <!-- Header with Status Badge -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:15px; border-bottom:1px solid #f1f5f9; padding-bottom:12px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span class="material-icons-outlined" style="color:#2563eb; font-size:24px;">verified</span>
+                <h2 style="margin:0; font-size:18px; color:#1e293b; font-weight:700;">DineX Restro License</h2>
             </div>
-            <div style="border:1px solid #fed7aa; border-radius:10px; padding:18px; background:#fff7ed;">
-                <h3>Pro Lifetime</h3>
-                <ul>
-                    <li>Multi restaurant</li>
-                    <li>Unlimited staff</li>
-                    <li>Inventory, recipe, wastage, full reports</li>
-                    <li>One-time payment</li>
-                </ul>
+            <div>
+                <span style="display:inline-flex; align-items:center; gap:6px; padding:6px 14px; border-radius:20px; font-size:12px; font-weight:700; background:<?php echo $is_pro ? '#dcfce7; color:#166534; border:1px solid #bbf7d0;' : '#f1f5f9; color:#475569; border:1px solid #cbd5e1;'; ?>">
+                    <span style="width:7px; height:7px; border-radius:50%; background:<?php echo $is_pro ? '#22c55e' : '#64748b'; ?>;"></span>
+                    Status: <?php echo $is_pro ? 'Pro Active' : 'Free Version'; ?>
+                </span>
             </div>
         </div>
 
-        <p><strong>Current status:</strong> <?php echo $is_pro ? 'Pro Active' : 'Free'; ?></p>
+        <p style="color:#64748b; font-size:13px; margin:0 0 20px; line-height:1.5;">
+            Free is limited but usable. Pro is a one-time lifetime unlock for the full restaurant automation system.
+        </p>
 
-        <form method="post" style="max-width:680px;">
+        <!-- Plan Comparison Cards -->
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:15px; margin-bottom:20px;">
+            <!-- Free Plan Card -->
+            <div style="border:1px solid #e2e8f0; border-radius:10px; padding:18px; background:#f8fafc; display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                    <h3 style="margin:0 0 10px; font-size:15px; color:#334155; font-weight:700;">Free Plan</h3>
+                    <ul style="margin:0; padding-left:16px; color:#64748b; font-size:13px; line-height:1.6;">
+                        <li>1 restaurant</li>
+                        <li>1 manager, 1 waiter, 1 kitchen user</li>
+                        <li>Sales report only, last 30 days</li>
+                        <li>No inventory, recipe, delivery</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Pro Plan Card -->
+            <div style="border:1px solid #fed7aa; border-radius:10px; padding:18px; background:linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); display:flex; flex-direction:column; justify-content:space-between;">
+                <div>
+                    <h3 style="margin:0 0 10px; font-size:15px; color:#c2410c; font-weight:700;">🚀 Pro Lifetime</h3>
+                    <ul style="margin:0; padding-left:16px; color:#9a3412; font-size:13px; line-height:1.6;">
+                        <li>Multi restaurant support</li>
+                        <li>Unlimited staff members</li>
+                        <li>Inventory, recipe, wastage & full reports</li>
+                        <li>One-time payment, lifetime access</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- License Activation Form -->
+        <form method="post" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:20px;">
             <?php wp_nonce_field( 'qrrs_pro_license_action', 'qrrs_pro_license_nonce' ); ?>
-            <label style="font-weight:700; display:block; margin-bottom:8px;">Pro License Key</label>
-            <input type="text" name="qrrs_pro_license_key" value="<?php echo esc_attr( get_option( QRRS_LICENSE_OPTION_KEY, '' ) ); ?>" style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px;">
-            <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
-                <button type="submit" name="qrrs_activate_pro_license" class="qrrs-btn-save">Activate Pro</button>
-                <button type="submit" name="qrrs_switch_free_license" class="button">Switch to Free</button>
+            <label style="font-weight:600; font-size:13px; color:#475569; display:block; margin-bottom:8px;">Pro License Key</label>
+            <input type="text" name="qrrs_pro_license_key" value="<?php echo esc_attr( get_option( QRRS_LICENSE_OPTION_KEY, '' ) ); ?>" placeholder="Enter your license key here..." style="width:100%; height:42px; padding:0 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; background:#fff; box-sizing:border-box;">
+            
+            <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; align-items:center;">
+                <button type="submit" name="qrrs_activate_pro_license" class="qrrs-btn-save" style="height:40px; padding:0 20px; background:#2563eb; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Activate Pro</button>
+                <button type="submit" name="qrrs_switch_free_license" class="button" style="height:40px; padding:0 16px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; border-radius:8px; font-weight:600; cursor:pointer;">Switch to Free</button>
             </div>
         </form>
 
-        <div style="margin-top:20px; padding:14px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
-            <strong>Local test key:</strong>
-            <code style="display:block; white-space:normal; margin-top:8px;"><?php echo esc_html( $demo_key ); ?></code>
-            <small>For production, this should be generated by your purchase/license server after payment.</small>
+        <!-- Local Test Key Box -->
+        <div style="margin-top:15px; padding:15px; background:#fff; border:1px dashed #cbd5e1; border-radius:8px;">
+            <span style="font-size:12px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Local test key (for trial/development):</span>
+            <code style="display:block; white-space:nowrap; overflow-x:auto; padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; font-size:11px; color:#0f172a;"><?php echo esc_html( $demo_key ); ?></code>
+            <small style="color:#64748b; font-size:11px; display:block; margin-top:6px;">For production, this should be generated by your purchase/license server after payment.</small>
         </div>
     </div>
     <?php

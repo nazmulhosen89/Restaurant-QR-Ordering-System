@@ -36,10 +36,6 @@ if ( isset($_POST['save_item_action']) ) {
     }
 
     $edit_id = intval($_POST['edit_id']);
-    $variant_input = sanitize_text_field($_POST['variants_csv']);
-    $variants_array = array_map('trim', explode(',', $variant_input));
-    $variants_array = array_filter($variants_array);
-
     $data = [
         'restaurant_id' => intval($_POST['restaurant_id']),
         'category_id'   => intval($_POST['category_id']),
@@ -49,7 +45,6 @@ if ( isset($_POST['save_item_action']) ) {
         'description'   => sanitize_textarea_field($_POST['description']),
         'portion_size'  => sanitize_text_field($_POST['portion_size']),
         'prep_time'     => sanitize_text_field($_POST['prep_time']),
-        'variants_json' => json_encode($variants_array),
         'is_available'  => isset($_POST['is_available']) ? 1 : 0,
         'is_tax_free'   => isset($_POST['is_tax_free']) ? 1 : 0 
     ];
@@ -87,36 +82,26 @@ if ( isset($_POST['save_item_action']) ) {
     exit;
 }
 
-// --- 3. HANDLE DELETE ---
-if ( isset($_GET['action']) && $_GET['action'] == 'delete_item' ) {
-    if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'delete_item_nonce')) {
-        wp_die('Security check failed');
-    }
-    $wpdb->query($wpdb->prepare("DELETE FROM $items_table WHERE id = %d AND restaurant_id = %d", intval($_GET['id']), $current_res_id));
-    wp_safe_redirect($base_url . '&status=deleted');
-    exit;
-}
-
 // --- Status Toast Display ---
 if(isset($_GET['status'])) {
     if($_GET['status'] == 'error') {
         echo "<div class='qrrs-toast error'>Error: Could not save item.</div>";
     } else {
-        $msg = ($_GET['status'] == 'updated') ? 'Item updated!' : (($_GET['status'] == 'inserted') ? 'New item added!' : 'Item deleted!');
+        $msg = ($_GET['status'] == 'updated') ? 'Item updated!' : (($_GET['status'] == 'inserted') ? 'New item added!' : 'Status updated!');
         echo "<div class='qrrs-toast success'>$msg</div>";
     }
 }
+
+$active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $res_table WHERE id = %d", $current_res_id));
 ?>
 
-
-
-<div class="items-add">
+<div class="items-add" style="height: calc(100vh - 251px);overflow-y: scroll;overflow-x: hidden;">
     <div class="qrrs-card">
         <div class="card-header">
-            <h3 style="margin-top:0;">
+            <h3>
                 <?php echo $edit_id 
-                    ? "<span class=\"material-icons-outlined\">edit_note</span> Edit Item" 
-                    : "<span class=\"material-icons-outlined\">add</span> Add New Menu Item"; 
+                    ? "<span class=\"material-icons-outlined\" style=\"color:#2563eb;\">edit_note</span> Edit Menu Item" 
+                    : "<span class=\"material-icons-outlined\" style=\"color:#2563eb;\">add_circle</span> Add New Menu Item"; 
                 ?>
             </h3>
         </div>
@@ -129,10 +114,7 @@ if(isset($_GET['status'])) {
             <div class="qrrs-form-grid">
                 <div class="qrrs-input-group">
                     <label>Active Restaurant</label>
-                    <?php 
-                        $active_res_name = $wpdb->get_var($wpdb->prepare("SELECT restaurant_name FROM $res_table WHERE id = %d", $current_res_id));
-                    ?>
-                    <input type="text" value="<?php echo esc_html($active_res_name); ?>" disabled style="background:#f0f0f0;">
+                    <input type="text" value="<?php echo esc_html($active_res_name); ?>" disabled style="background:#f8fafc; color:#64748b;">
                 </div>
 
                 <div class="qrrs-input-group">
@@ -150,21 +132,12 @@ if(isset($_GET['status'])) {
 
                 <div class="qrrs-input-group">
                     <label>Item Name</label>
-                    <input type="text" name="item_name" value="<?php echo esc_attr($edit_item->item_name ?? ''); ?>" required>
+                    <input type="text" name="item_name" value="<?php echo esc_attr($edit_item->item_name ?? ''); ?>" placeholder="e.g. Chicken Burger" required>
                 </div>
 
                 <div class="qrrs-input-group">
                     <label>Price (৳)</label>
-                    <input type="number" step="0.01" name="price" value="<?php echo esc_attr($edit_item->price ?? ''); ?>" required>
-                </div>
-            </div>
-
-            <div class="qrrs-input-group">
-                <label>Image</label>
-                <div style="display:flex; align-items:center; gap:15px;">
-                    <img id="preview" src="<?php echo esc_url($edit_item->item_image ?? 'https://via.placeholder.com/80'); ?>" style="width:70px; height:70px; object-fit:cover; border-radius:5px; border:1px solid #ddd;">
-                    <input type="hidden" name="image" id="img_val" value="<?php echo esc_attr($edit_item->item_image ?? ''); ?>">
-                    <button type="button" class="upload-media button">Upload Photo</button>
+                    <input type="number" step="0.01" name="price" value="<?php echo esc_attr($edit_item->price ?? ''); ?>" placeholder="0.00" required>
                 </div>
             </div>
 
@@ -177,35 +150,39 @@ if(isset($_GET['status'])) {
                     <label>Prep Time</label>
                     <input type="text" name="prep_time" placeholder="e.g. 15 min" value="<?php echo esc_attr($edit_item->prep_time ?? ''); ?>">
                 </div>
-            </div>
-
-            <div class="qrrs-input-group">
-                <label>Variants (Separate with Comma)</label>
-                <?php 
-                    $saved_json = ($edit_item && $edit_item->variants_json) ? json_decode($edit_item->variants_json, true) : [];
-                    $csv_variants = is_array($saved_json) ? implode(', ', $saved_json) : '';
-                ?>
-                <input type="text" name="variants_csv" placeholder="e.g. Spicy, Extra Cheese" value="<?php echo esc_attr($csv_variants); ?>">
+                <div class="qrrs-input-group">
+                    <label>Item Image</label>
+                    <div style="display:flex; align-items:center; gap:15px;">
+                        <div class="upload-media" style="width: 60px; height: 60px; border-radius: 8px; overflow: hidden; border: 2px dashed #cbd5e1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #f8fafc;">
+                            <img id="preview" src="<?php echo esc_url($edit_item->item_image ?? 'https://via.placeholder.com/60?text=Image'); ?>" style="width:100%; height:100%; object-fit:cover;">
+                            <input type="hidden" name="image" id="img_val" value="<?php echo esc_attr($edit_item->item_image ?? ''); ?>">
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="qrrs-input-group">
                 <label>Description</label>
-                <textarea name="description" rows="2"><?php echo esc_textarea($edit_item->description ?? ''); ?></textarea>
+                <textarea name="description" rows="2" placeholder="Write a short description about this item..."><?php echo esc_textarea($edit_item->description ?? ''); ?></textarea>
             </div>
 
-            <div class="qrrs-card" style="padding:18px; margin:0 0 20px; background:#f8fafc; border:1px solid #e2e8f0;">
+            <!-- Recipe Section -->
+            <div class="qrrs-card" style="padding:18px; margin:0 0 20px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
                 <div style="display:flex; justify-content:space-between; gap:15px; align-items:center; margin-bottom:12px;">
                     <div>
-                        <h4 style="margin:0;">Recipe / Ingredients</h4>
+                        <h4 style="margin:0; font-size: 15px; color: #1e293b;">Recipe / Ingredients</h4>
                         <p style="margin:4px 0 0; color:#64748b; font-size:13px;">Optional. Add raw materials used to prepare this menu item.</p>
                     </div>
-                    <button type="button" class="button" id="qrrs-add-recipe-row" <?php echo ( function_exists('qrrs_can_use_feature') && ! qrrs_can_use_feature('recipe') ) ? 'disabled style="opacity:.55; cursor:not-allowed;"' : ''; ?>>Add Ingredient</button>
+                    <!-- 📌 Smart Add Icon Button -->
+                    <button type="button" id="qrrs-add-recipe-row" title="Add Ingredient" style="width: 38px; height: 38px; background: #2563eb; color: #fff; border: none; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2); transition: background 0.2s;" <?php echo ( function_exists('qrrs_can_use_feature') && ! qrrs_can_use_feature('recipe') ) ? 'disabled style="opacity:.55; cursor:not-allowed;"' : ''; ?>>
+                        <span class="material-icons-outlined" style="font-size: 20px;">add</span>
+                    </button>
                 </div>
 
                 <?php if ( function_exists('qrrs_can_use_feature') && ! qrrs_can_use_feature('recipe') ) : ?>
                     <?php qrrs_render_upgrade_notice( 'Recipe Management' ); ?>
                 <?php elseif (empty($inventory_items)) : ?>
-                    <p style="margin:0; color:#b45309;">No inventory items found yet. Add raw materials from Inventory first.</p>
+                    <p style="margin:0; color:#b45309; font-size: 13px;">No inventory items found yet. Add raw materials from Inventory first.</p>
                 <?php else : ?>
                     <table class="qrrs-table" id="qrrs-recipe-table" style="margin-top:0;">
                         <thead>
@@ -214,7 +191,7 @@ if(isset($_GET['status'])) {
                                 <th>Qty</th>
                                 <th>Unit</th>
                                 <th>Wastage %</th>
-                                <th></th>
+                                <th style="width: 50px; text-align: center;"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -245,7 +222,12 @@ if(isset($_GET['status'])) {
                                     </select>
                                 </td>
                                 <td><input type="number" step="0.01" name="recipe_wastage_percent[]" value="<?php echo esc_attr($recipe_row->wastage_percent ?? 0); ?>"></td>
-                                <td><button type="button" class="button qrrs-remove-recipe-row">Remove</button></td>
+                                <td style="text-align: center;">
+                                    <!-- 📌 Smart Delete/Remove Icon Button -->
+                                    <button type="button" class="qrrs-remove-recipe-row" title="Remove Ingredient" style="width: 34px; height: 34px; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background 0.2s;">
+                                        <span class="material-icons-outlined" style="font-size: 18px;">delete_outline</span>
+                                    </button>
+                                </td>
                             </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -253,39 +235,41 @@ if(isset($_GET['status'])) {
                 <?php endif; ?>
             </div>
 
-            <div style="background: #fffde7; padding: 15px; border-radius: 8px; border: 1px solid #ffe082; margin-bottom: 20px;">
-                <label style="margin-right: 20px; cursor:pointer; font-weight:bold;">
-                    <input type="checkbox" name="is_tax_free" <?php echo (isset($edit_item->is_tax_free) && $edit_item->is_tax_free) ? 'checked' : ''; ?> style="height: 18px !important;"> 
+            <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; display: flex; gap: 20px;">
+                <label style="cursor:pointer; font-weight:600; font-size:13px; color: #334155; display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" name="is_tax_free" <?php echo (isset($edit_item->is_tax_free) && $edit_item->is_tax_free) ? 'checked' : ''; ?> style="width: 16px; height: 16px;"> 
                     🚫 Tax Free (Only SD Apply)
                 </label>
-                <label style="cursor:pointer; font-weight:bold;">
-                    <input type="checkbox" name="is_available" <?php echo (!isset($edit_item->is_available) || $edit_item->is_available) ? 'checked' : ''; ?> style="height: 18px !important;"> 
+                <label style="cursor:pointer; font-weight:600; font-size:13px; color: #334155; display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" name="is_available" <?php echo (!isset($edit_item->is_available) || $edit_item->is_available) ? 'checked' : ''; ?> style="width: 16px; height: 16px;"> 
                     ✅ Available in Menu
                 </label>
             </div>
 
             <div class="form-footer">
                 <button type="submit" name="save_item_action" class="qrrs-btn-save">
-                    <?php echo $edit_id ? 'Update Item' : 'Add Item'; ?>
+                    <?php echo $edit_id ? 'Update Item' : 'Save Item'; ?>
                 </button>
                 <?php if($edit_id): ?>
-                    <a href="<?php echo $base_url; ?>" style="margin-left:10px; text-decoration:none; color:#666;">Cancel</a>
+                    <a href="<?php echo $base_url; ?>" style="text-decoration:none; color:#64748b; font-weight:600; font-size: 14px;">Cancel</a>
                 <?php endif; ?>
             </div>
         </form>
     </div>
 
-    <div class="qrrs-card" style="margin-top:30px; background:#f9f9f9; padding:20px; border-radius:8px;">
-        <h3>📋 Menu Items for <?php echo esc_html($active_res_name); ?></h3>
-        <table class="qrrs-table">
+    <!-- Menu Items List Card -->
+    <div class="qrrs-card" style="margin:30px 0 0 0; background:#fff; padding:24px; border-radius:12px; border: 1px solid #e2e8f0;">
+        <h3 style="margin-top:0; font-size:18px; color:#1e293b; margin-bottom:15px;">📋 Menu Items for <?php echo esc_html($active_res_name); ?></h3>
+        
+        <table class="qrrs-table" style="width: 100%; border-collapse: collapse;">
             <thead>
-                <tr>
-                    <th>Image</th>
-                    <th>Name</th>
-                    <th>Category</th>
-                    <th>Price</th>
-                    <th>Tax Status</th>
-                    <th>Action</th>
+                <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0; text-align: left;">
+                    <th style="padding:12px; font-size:13px; color:#475569;">Image</th>
+                    <th style="padding:12px; font-size:13px; color:#475569;">Name</th>
+                    <th style="padding:12px; font-size:13px; color:#475569;">Category</th>
+                    <th style="padding:12px; font-size:13px; color:#475569;">Price</th>
+                    <th style="padding:12px; font-size:13px; color:#475569;">Status</th>
+                    <th style="padding:12px; font-size:13px; color:#475569; text-align: right;">Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -305,29 +289,36 @@ if(isset($_GET['status'])) {
                 ));
 
                 if($items): foreach($items as $row):
+                    $is_inactive = ($row->is_available == 0);
                 ?>
-                <tr>
-                    <td><img src="<?php echo esc_url($row->item_image ?: 'https://via.placeholder.com/50'); ?>" style="width:45px; height:45px; object-fit:cover; border-radius:4px;"></td>
-                    <td>
-                        <strong><?php echo esc_html($row->item_name); ?></strong>
-                        <?php if(!$row->is_available): ?> <span style="color:red; font-size:10px;">(Not Available)</span> <?php endif; ?>
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:12px;">
+                        <img src="<?php echo esc_url($row->item_image ?: 'https://via.placeholder.com/50'); ?>" style="width:40px; height:40px; object-fit:cover; border-radius:6px; border:1px solid #e2e8f0;">
                     </td>
-                    <td><span style="background:#eee; padding:2px 8px; border-radius:10px; font-size:12px;"><?php echo esc_html($row->cat_name); ?></span></td>
-                    <td><?php echo number_format($row->price, 2); ?>৳</td>
-                    <td>
-                        <?php if($row->is_tax_free): ?>
-                            <span class="status-badge" style="background:#e0f2fe; color:#0369a1;">Tax Free</span>
+                    <td style="padding:12px;">
+                        <strong style="color:#1e293b; font-size:14px;"><?php echo esc_html($row->item_name); ?></strong>
+                    </td>
+                    <td style="padding:12px;">
+                        <span style="background:#f1f5f9; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; color:#475569;"><?php echo esc_html($row->cat_name); ?></span>
+                    </td>
+                    <td style="padding:12px; font-weight:600; color:#1e293b;"><?php echo number_format($row->price, 2); ?>৳</td>
+                    
+                    <!-- Status Badge -->
+                    <td style="padding:12px;">
+                        <?php if($is_inactive): ?>
+                            <span style="background:#fee2e2; color:#dc2626; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase;">Unavailable</span>
                         <?php else: ?>
-                            <span class="status-badge" style="background:#f1f5f9; color:#64748b;">Standard</span>
+                            <span style="background:#dcfce7; color:#16a34a; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase;">Available</span>
                         <?php endif; ?>
                     </td>
-                    <td>
-                        <a href="<?php echo $base_url; ?>&edit_id=<?php echo $row->id; ?>" class="edit-btn">Edit</a>
-                        <a href="<?php echo wp_nonce_url($base_url . '&action=delete_item&id=' . $row->id, 'delete_item_nonce'); ?>" class="delete-btn" onclick="return confirm('Delete this item?')">Delete</a>
+
+                    <!-- Action Buttons -->
+                    <td style="padding:12px; text-align: right;">
+                        <a href="<?php echo $base_url; ?>&edit_id=<?php echo $row->id; ?>" style="display:inline-block; padding:6px 14px; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; border-radius:6px; font-size:12px; font-weight:600; text-decoration:none;">Edit</a>
                     </td>
                 </tr>
                 <?php endforeach; else: ?>
-                    <tr><td colspan="6" style="text-align:center;">No items found for this restaurant.</td></tr>
+                    <tr><td colspan="6" style="text-align:center; padding:30px; color:#64748b;">No items found for this restaurant.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>
@@ -345,7 +336,6 @@ if(isset($_GET['status'])) {
         <?php endif; ?>
     </div>
 </div>
-
 
 <script>
 jQuery(document).ready(function($){
